@@ -14,14 +14,16 @@ import org.springframework.web.bind.annotation.RestController;
 public class UserController extends BaseController {
     @Autowired
     private IUserService userService;
+
     @RequestMapping("reg")
     public JsonResult<Void> reg(User user) {
         userService.reg(user);
         return new JsonResult<>(success);
     }
+
     @RequestMapping("login")
-    public JsonResult<User> login(String username, String password){
-        User user = userService.login(username,password);
+    public JsonResult<User> login(String username, String password) {
+        User user = userService.login(username, password);
         return new JsonResult<User>(success, user);
     }
 
