@@ -630,7 +630,7 @@ public JsonResult<Void> handleException(Throwable e){
 
   请求方式：POST
 
-  请求数据：username、password
+  请求数据：username、password、HttpSession
 
   响应结果：JsonResult
 
@@ -647,3 +647,174 @@ public JsonResult<Void> handleException(Throwable e){
  ```
 
 #### 前端页面
+
+* 在login.html中使用ajax处理前端数据
+* 登录成功则跳转主页，失败弹出提示信息
+
+### 流程（拦截器）
+
+##### 请求先统一经过拦截器
+
+拦截器中应定义过滤规则，不满足则重定向到login.html;
+
+重定向、转发都实现页面跳转，转发会造成url变化，重定向不会造成url变化;
+
+定义一个实现HandlerInterceptor的类。
+
+```java
+package com.nathan.store.interceptor;
+
+import org.springframework.web.servlet.HandlerInterceptor;
+import org.springframework.web.servlet.ModelAndView;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+public class LoginInterceptor implements HandlerInterceptor {
+    /**
+     * 检测全局session对象中是否有uid，有则放行
+     * @param request 请求对象
+     * @param response 响应对象
+     * @param handler 处理器（url+controller）
+     * @return 返回为true则放行请求
+     * @throws Exception 异常
+     */
+    @Override
+    public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
+        Object object = request.getSession().getAttribute("uid");
+        // 用户为空则重定向
+        if (object==null){
+          response.sendRedirect("/web/login.html");
+          return false;
+        }
+        return true;
+    }
+
+    @Override
+    public void postHandle(HttpServletRequest request, HttpServletResponse response, Object handler, ModelAndView modelAndView) throws Exception {
+        HandlerInterceptor.super.postHandle(request, response, handler, modelAndView);
+    }
+
+    @Override
+    public void afterCompletion(HttpServletRequest request, HttpServletResponse response, Object handler, Exception ex) throws Exception {
+        HandlerInterceptor.super.afterCompletion(request, response, handler, ex);
+    }
+}
+```
+
+* 注册过滤器：
+
+添加白名单（login、register、reg、product、index.html）、黑名单（需登录才能访问）
+
+借助WebMvcConfig接口注册过滤器
+```java
+package com.nathan.store.config;
+
+import com.nathan.store.interceptor.LoginInterceptor;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.web.servlet.HandlerInterceptor;
+import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+
+import java.util.ArrayList;
+import java.util.List;
+
+// 登录拦截器注册
+@Configuration
+public class LoginInterceptorConfigurer implements WebMvcConfigurer {
+    // 配置拦截器
+    @Override
+    public void addInterceptors(InterceptorRegistry registry) {
+        HandlerInterceptor interceptor = new LoginInterceptor();
+        // 拦截器直接放行的资源放到一个list集合
+        List<String> patterns = new ArrayList<>();
+        patterns.add("bootstrap3/**1");
+        patterns.add("/css/**");
+        patterns.add("/images/**");
+        patterns.add("/js/**");
+        patterns.add("/web/register.html");
+        patterns.add("/web/login.html");
+        patterns.add("/web/product.html");
+        patterns.add("/web/index.html");
+        patterns.add("/users/reg");
+        patterns.add("/users/login");
+        registry.addInterceptor(interceptor)
+                .addPathPatterns("/**") // 拦截所有url
+                .excludePathPatterns(patterns); // 除了指定路径
+    }
+}
+
+```
+
+### 流程（密码修改）
+#### 持久层
+1. 规划sql
+
+根据uid更改密码
+```sql
+update t_user set password=?,modified_user=?,modified_time=? where uid=?
+```
+
+根据uid查询用户数据
+```sql
+select * from t_user where uid=?
+```
+
+2. 设计接口和抽象方法
+UserMapper接口定义方法，将方法配置到映射文件UserMapper.xml中
+```sql
+<update id="updatePasswordByUid">
+    UPDATE t_user SET password=#{password},
+                      modified_user=#{modifiedUser},
+                      modified_time=#{modifiedTime} 
+                  WHERE uid=#{uid}
+</update>
+<select id="findByUid" resultMap="UserEntityMap">
+    SELECT *FROM t_user WHERE uid=#{uid}
+</select>
+```
+#### 业务层
+1. 规划异常
+
+   密码错误、is_delete=1、uid找不到、update过程异常
+
+2. 设计接口和方法
+```
+void changePassword(Integer uid, String username, 
+        String oldPassword, String newPassword);
+```
+```
+public void changePassword(Integer uid, String username, String oldPassword, String newPassword) {
+        User user = userMapper.findByUid(uid);
+        if (user==null||user.getIsDelete()==1){
+            throw new UsernameNotFoundException("用户不存在");
+        }
+        String oldMd5Password = getMD5Password(oldPassword,user.getSalt());
+        if(!user.getPassword().equals(oldMd5Password)){
+            throw new PasswordNotMatchException("原密码错误");
+        }
+        String newMd5Password = getMD5Password(newPassword,user.getSalt());
+        Integer rows = userMapper.updatePasswordByUid(uid,newMd5Password,username,new Date());
+        if (rows!=1){
+            throw new UpdateException("更新数据时出现异常");
+        }
+    }
+```
+#### 控制层
+1. 处理异常
+
+  UpdateException配置到BaseController统一异常处理方法中
+
+2. 设计请求
+
+请求路径：/users/change_password
+
+请求方式：POST
+
+请求数据：oldPassword、newPassword、HttpSession
+
+响应结果：JsonResult
+
+
+3. 处理请求
+#### 前端

@@ -2,6 +2,8 @@ package com.nathan.store.mapper;
 
 import com.nathan.store.entity.User;
 
+import java.util.Date;
+
 // 用户持久层接口
 public interface UserMapper {
     /**
@@ -17,4 +19,21 @@ public interface UserMapper {
      * @return 查询成功返回user，错误则返回null
      */
     User findByUsername(String username);
+
+    /**
+     * 根据uid修改密码
+     * @param uid id
+     * @param password 新密码
+     * @param modifiedUser 修改人
+     * @param modifiedTime 修改时间
+     * @return 影响的数据库行数
+     */
+    Integer updatePasswordByUid(Integer uid, String password, String modifiedUser, Date modifiedTime);
+
+    /**
+     * uid查询用户
+     * @param uid id
+     * @return 成功返回对象，失败返回null
+     */
+    User findByUid(Integer uid);
 }

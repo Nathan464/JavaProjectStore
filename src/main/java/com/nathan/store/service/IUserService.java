@@ -2,6 +2,8 @@ package com.nathan.store.service;
 
 import com.nathan.store.entity.User;
 
+import javax.servlet.http.HttpSession;
+
 // 用户模块业务层
 public interface IUserService {
     /**
@@ -17,4 +19,7 @@ public interface IUserService {
      * @return 返回登录用户数据，用户不存在返回null
      */
     User login(String username, String password);
+
+
+    void changePassword(Integer uid, String username, String oldPassword, String newPassword);
 }

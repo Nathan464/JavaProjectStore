@@ -3,14 +3,12 @@ package com.nathan.store.service.impl;
 import com.nathan.store.entity.User;
 import com.nathan.store.mapper.UserMapper;
 import com.nathan.store.service.IUserService;
-import com.nathan.store.service.ex.InsertException;
-import com.nathan.store.service.ex.PasswordNotMatchException;
-import com.nathan.store.service.ex.UsernameDuplicatedException;
-import com.nathan.store.service.ex.UsernameNotFoundException;
+import com.nathan.store.service.ex.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.DigestUtils;
 
+import javax.servlet.http.HttpSession;
 import java.util.Date;
 import java.util.UUID;
 
@@ -72,6 +70,23 @@ public class UserServiceImpl implements IUserService {
         user.setUsername(result.getUsername());
         user.setAvatar(result.getAvatar());
         return user;
+    }
+
+    @Override
+    public void changePassword(Integer uid, String username, String oldPassword, String newPassword) {
+        User user = userMapper.findByUid(uid);
+        if (user==null||user.getIsDelete()==1){
+            throw new UsernameNotFoundException("用户不存在");
+        }
+        String oldMd5Password = getMD5Password(oldPassword,user.getSalt());
+        if(!user.getPassword().equals(oldMd5Password)){
+            throw new PasswordNotMatchException("原密码错误");
+        }
+        String newMd5Password = getMD5Password(newPassword,user.getSalt());
+        Integer rows = userMapper.updatePasswordByUid(uid,newMd5Password,username,new Date());
+        if (rows!=1){
+            throw new UpdateException("更新数据时出现异常");
+        }
     }
 
     // md5加密密码

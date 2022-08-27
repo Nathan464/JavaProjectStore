@@ -18,8 +18,8 @@ public class UserServiceTests {
     public void reg(){
         try {
             User user = new User();
-            user.setUsername("huang");
-            user.setPassword("123");
+            user.setUsername("gang");
+            user.setPassword("123456");
             userService.reg(user);
             System.out.println("OK");
         } catch (ServiceException e) {
@@ -31,5 +31,10 @@ public class UserServiceTests {
     public void login(){
         User user = userService.login("li","123456");
         System.out.println(user);
+    }
+
+    @Test
+    public void changePassword(){
+        userService.changePassword(7,"gang","123456","321");
     }
 }
