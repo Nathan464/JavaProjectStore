@@ -555,19 +555,95 @@ where username = ?
 
 * 规划异常
 
-    用户名对应的密码不匹配PasswordNotMatchException
-    
-    用户未找到UsernameNotFoundException
-    
-    异常编写：继承ServiceException类
+  用户名对应的密码不匹配PasswordNotMatchException
+
+  用户未找到UsernameNotFoundException
+
+  异常编写：继承ServiceException类
 
 * 接口和抽象方法
 
-    在IUserService接口中编写login()，并将登录的用户数据以用户对象封装返回，保存在cookie或者session中，避免反复获取使用多次的数据
+  在IUserService接口中编写login()，并将登录的用户数据以用户对象封装返回，保存在cookie或者session中，避免反复获取使用多次的数据
+
+  实现类中实现父类方法
+
+  测试登录方法是否正常运行
+
+```
+public User login(String username,String password){
+    User result=userMapper.findByUsername(username);
+    // 用户不存在抛异常
+    if(result==null){
+        throw new UsernameNotFoundException("用户不存在");
+    }
+    // 匹配密码: 将密码以相同的规则加密，再与数据库匹配
+    String salt=result.getSalt();
+    String md5Password=getMD5Password(password,salt);
+    if(!result.getPassword().equals(md5Password)){
+        throw new PasswordNotMatchException("密码错误");
+    }
+    // 判断is_delete字段是否为1-已删除
+    if(result.getIsDelete()==1){
+        throw new UsernameNotFoundException("用户数据不存在");
+    }
+    // new一个新对象，辅助其它页面的数据展示，且应只封装所需信息，减少数据量
+    User user=new User();
+    user.setUid(result.getUid());
+    user.setUsername(result.getUsername());
+    user.setAvatar(result.getAvatar());
+    return user;
+}
+```
 
 * 抽象方法实现
 
-
 #### 控制层
+
+* 处理异常
+
+  根据业务层抛出的异，需要在统一异常类中进行捕获和处理，未出现的异常需新添加
+
+```
+@ExceptionHandler(ServiceException.class)  // 用于统一处理抛出的异常
+public JsonResult<Void> handleException(Throwable e){
+    JsonResult<Void> result = new JsonResult<>();
+    if (e instanceof UsernameDuplicatedException) {
+        result.setState(4000);
+        result.setMessage("用户名被占用");
+    }else if (e instanceof UsernameNotFoundException) {
+        result.setState(5001);
+        result.setMessage("用户未找到");
+    } else if (e instanceof PasswordNotMatchException) {
+        result.setState(5002);
+        result.setMessage("用户密码错误");
+    }else if (e instanceof InsertException) {
+        result.setState(5000);
+        result.setMessage("用户注册产生异常");
+    }
+    return result;
+}
+```
+
+* 设计请求
+
+  请求路径：/users/login
+
+  请求方式：POST
+
+  请求数据：username、password
+
+  响应结果：JsonResult
+
+* 处理请求
+
+  UserController类中编写处理请求的方法
+
+```
+  @RequestMapping("login")
+  public JsonResult<User> login(String username, String password){
+      User user = userService.login(username,password);
+      return new JsonResult<User>(success, user);
+  }
+ ```
 
 #### 前端页面

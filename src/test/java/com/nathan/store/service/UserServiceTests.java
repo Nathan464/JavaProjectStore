@@ -27,4 +27,9 @@ public class UserServiceTests {
             System.out.println(e.getMessage());
         }
     }
+    @Test
+    public void login(){
+        User user = userService.login("li","123456");
+        System.out.println(user);
+    }
 }

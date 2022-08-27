@@ -4,7 +4,9 @@ import com.nathan.store.entity.User;
 import com.nathan.store.mapper.UserMapper;
 import com.nathan.store.service.IUserService;
 import com.nathan.store.service.ex.InsertException;
+import com.nathan.store.service.ex.PasswordNotMatchException;
 import com.nathan.store.service.ex.UsernameDuplicatedException;
+import com.nathan.store.service.ex.UsernameNotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.DigestUtils;
@@ -49,7 +51,27 @@ public class UserServiceImpl implements IUserService {
 
     @Override
     public User login(String username, String password) {
-        return null;
+        User result = userMapper.findByUsername(username);
+        // 用户不存在抛异常
+        if (result == null){
+            throw new UsernameNotFoundException("用户不存在");
+        }
+        // 匹配密码: 将密码以相同的规则加密，再与数据库匹配
+        String salt = result.getSalt();
+        String md5Password = getMD5Password(password,salt);
+        if (!result.getPassword().equals(md5Password)){
+            throw new PasswordNotMatchException("密码错误");
+        }
+        // 判断is_delete字段是否为1-已删除
+        if (result.getIsDelete()==1){
+            throw new UsernameNotFoundException("用户数据不存在");
+        }
+        // new一个新对象，辅助其它页面的数据展示，且应只封装所需信息，减少数据量
+        User user = new User();
+        user.setUid(result.getUid());
+        user.setUsername(result.getUsername());
+        user.setAvatar(result.getAvatar());
+        return user;
     }
 
     // md5加密密码
