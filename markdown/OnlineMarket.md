@@ -1,14 +1,22 @@
 ### SpringBoot项目-网上商城
+
 #### 一、项目功能：登录、注册、热销、用户管理、购物车、订单模块
+
 #### 二、开发顺序：注册、登录、用户管理、购物车、商品、订单
+
 #### 三、单一模块开发顺序：
+
 * 持久层：根据前端页面的设置规划sql语句
 * 业务层：核心功能控制、业务操作、异常处理
 * 控制层：接收请求、处理响应
 * 前端：JS、Jquery、Ajax
-### 流程
+
+### 流程（用户注册）
+
 #### 1. 根据表结构提取公共字段放到实体类基类BaseEntity中
+
 实体类中构建需要get、set、equals、hashCode、toString方法
+
 ```java
 package com.nathan.store.entity;
 
@@ -79,7 +87,9 @@ public class BaseEntity implements Serializable {
 }
 
 ```
+
 #### 2. 创建用户实体类，继承BaseEntity基类
+
 ```java
 package com.nathan.store.entity;
 
@@ -220,24 +230,37 @@ public class User extends BaseEntity implements Serializable {
     }
 }
 ```
+
 #### 3. 注册持久层：通过MyBatis操作数据库
+
 ##### 3.1 规划需要执行的sql语句
+
 1. 用户注册：对应数据库插入操作
+
 ```sql
-insert into t_user (username,password) values (?,?)
+insert into t_user (username, password)
+values (?, ?)
 ```
+
 2. 注册时判断用户名是否被注册：查询语句
+
 ```sql
-select * from t_user where username=?
+select *
+from t_user
+where username = ?
 ```
 
 ##### 3.2 设计接口和方法
+
 1. 定义Mapper接口
 2. @MapperScan() 指定mapper接口路径，项目启动时自动加载接口文件
+
 ##### 3.3 编写映射
+
 1. 定义.xml映射文件，与对应的接口进行关联
 2. 创建接口对应的映射文件，文件名与接口名需一致
 3. 配置接口中方法对应上sql语句，借助标签完成insert、update、delete、select
+
 ```.xml
 <mapper namespace="com.nathan.store.mapper.UserMapper">
     <insert id="insert" useGeneratedKeys="true" keyProperty="uid">
@@ -250,34 +273,42 @@ select * from t_user where username=?
     </insert>
 </mapper>
 ```
+
 useGeneratedKeys="true" keyProperty="uid"表示以uid字段自增
+
 4. 自定义映射规则
+
 ```xml
 <!--自定义映射规则
         id: 负责分配唯一的id，对应resultMap=""属性的取值
         type: 类属性，表示数据库中的查询结果与java实体类进行映射
     -->
-    <resultMap id="UserEntityMap" type="com.nathan.store.entity.User">
-        <!--表字段与类属性不一致的字段需要匹配
-            column表属性；property类中的属性
-            主键的映射不可省略
-        -->
-        <result column="uid" property="uid"/>
-        <result column="is_delete" property="isDelete"/>
-        <result column="created_user" property="createdUser"/>
-        <result column="created_time" property="createdTime"/>
-        <result column="modified_user" property="modifiedUser"/>
-        <result column="modified_time" property="modifiedTime"/>
-    </resultMap>
+<resultMap id="UserEntityMap" type="com.nathan.store.entity.User">
+    <!--表字段与类属性不一致的字段需要匹配
+        column表属性；property类中的属性
+        主键的映射不可省略
+    -->
+    <result column="uid" property="uid"/>
+    <result column="is_delete" property="isDelete"/>
+    <result column="created_user" property="createdUser"/>
+    <result column="created_time" property="createdTime"/>
+    <result column="modified_user" property="modifiedUser"/>
+    <result column="modified_time" property="modifiedTime"/>
+</resultMap>
 ```
+
 单元测试方法：必须被@Test注解修饰；返回值只能是void；方法参数列表不指定任何类型；方法修饰符必须为public
+
 #### 4.业务层
+
 ##### 4.1 规划异常
+
 构建异常基类
+
 ```java
 package com.nathan.store.service.ex;
 
-public class ServiceException extends RuntimeException{
+public class ServiceException extends RuntimeException {
     public ServiceException() {
         super();
     }
@@ -299,13 +330,16 @@ public class ServiceException extends RuntimeException{
     }
 }
 ```
+
 > 根据业务层不同功能定义具体异常类型，统一继承异常基类
+
 1. 用户名被占用，定义用户名重复异常
+
 ```java
 package com.nathan.store.service.ex;
 
 // 用户名被占用
-public class UsernameDuplicatedException extends ServiceException{
+public class UsernameDuplicatedException extends ServiceException {
     public UsernameDuplicatedException() {
         super();
     }
@@ -327,12 +361,14 @@ public class UsernameDuplicatedException extends ServiceException{
     }
 }
 ```
+
 2. 数据插入时，服务器或数据库宕机，执行插入的过程中出现异常
+
 ```java
 package com.nathan.store.service.ex;
 
 // 数据插入过程中产生的异常
-public class InsertException extends ServiceException{
+public class InsertException extends ServiceException {
     public InsertException() {
         super();
     }
@@ -354,8 +390,11 @@ public class InsertException extends ServiceException{
     }
 }
 ```
+
 ##### 4.1 设计接口和抽象方法
+
 1. 创建IUserService接口
+
 ```java
 package com.nathan.store.service;
 
@@ -370,7 +409,9 @@ public interface IUserService {
     void reg(User user);
 }
 ```
+
 2. 创建UserServiceImpl实现类
+
 ```java
 package com.nathan.store.service.impl;
 
@@ -387,11 +428,12 @@ import java.util.Date;
 public class UserServiceImpl implements IUserService {
     @Autowired(required = false)
     private UserMapper userMapper;
+
     @Override
     public void reg(User user) {
         // 通过user获得username，调用findByUsername判断是否被注册过
         User result = userMapper.findByUsername(user.getUsername());
-        if (result!=null){
+        if (result != null) {
             throw new UsernameDuplicatedException("用户名已存在");
         }
         // 补充用户数据
@@ -403,9 +445,129 @@ public class UserServiceImpl implements IUserService {
         user.setModifiedTime(date);
         // 为空时执行用户注册
         Integer rows = userMapper.insert(user);
-        if (rows!=1){
+        if (rows != 1) {
             throw new InsertException("用户注册过程中出现未知异常");
         }
     }
 }
 ```
+
+#### 5. 控制层
+
+* 创建响应：将状态码、描述信息、数据封装到一个类中，将该类作为返回值返回到前端
+
+```java
+public class JsonResult<E> implements Serializable {
+    //状态码
+    private Integer state;
+    private String message;
+    // 泛型数据
+    private E data;
+}
+```
+
+* 设计请求：根据当前业务功能模块进行（请求路径、参数、类型、响应结果）
+* 处理请求：创建控制层UserController类，依赖于业务层接口
+
+```java
+
+@RequestMapping("users")
+@RestController // @Controller + @ResponseBody表示此方法响应结果以json格式进行数据响应
+public class UserController extends BaseController {
+    @Autowired
+    private IUserService userService;
+
+    @RequestMapping("reg")
+    public JsonResult<Void> reg(User user) {
+        userService.reg(user);
+        return new JsonResult<>(success);
+    }
+}
+```
+
+* 控制层优化设计：抽离公共代码生成父类，BaseController类处理异常
+
+```java
+public class BaseController {
+    // 操作成功状态码
+    public static final int success = 200;
+
+    // 请求处理方法，返回值为需要传递到前端的数据
+    // 自动将异常对象传递给此方法的参数列表上
+    @ExceptionHandler(ServiceException.class)  // 用于统一处理抛出的异常
+    public JsonResult<Void> handleException(Throwable e) {
+        JsonResult<Void> result = new JsonResult<>();
+        if (e instanceof UsernameDuplicatedException) {
+            result.setState(4000);
+            result.setMessage("用户名被占用");
+        } else if (e instanceof InsertException) {
+            result.setState(5000);
+            result.setMessage("用户注册产生异常");
+        }
+        return result;
+    }
+}
+```
+
+> @ExceptionHandler(ServiceException.class)  // 用于统一处理抛出的异常
+> @RestController // 等同于 @Controller + @ResponseBody 表示此方法响应结果以json格式进行数据响应
+
+#### 6. 前端页面
+
+* 在注册的前端页面中编写发送请求的方法，$.ajax()发送异步请求
+* Jquery封装的$.ajax()函数可异步加载相关请求，依赖于JavaScript提供的XHR(XmlHttpResponse)对象
+* ajax使用，需传递**某个方法体**作为参数，结构为，参数值以字符串标识：
+
+```js
+$.ajax({
+    url: "", // 请求的地址，不能包含参数列表内容
+    type: "", // 请求的数据类型，get、post
+    data: "", // 请求地址需要的数据"username=nathan&password=123"，由于登录时使用的是表单，应该使用${"#表单id"}.serialize()
+    datatype: "", // 提交的数据类型，一般为json类型
+    success: function () {
+
+    }, // 服务器正常响应，调用该方法，服务器返回的数据传递到该方法上
+    error: function () {
+
+    } // 与success相反
+});
+```
+
+### 流程（用户登录）
+
+用户名和密码与数据库匹配，跳转到主页index.html，前端使用jQuery完成
+
+#### 持久层
+
+* 规划sql：根据用户提交信息做select查询，判断用户是否存在，密码判断在业务层
+
+```sql
+select *
+from t_user
+where username = ?
+```
+
+与UserMapper.xml的findByUsername一致，可直接调用
+
+* 接口无需重复开发
+
+#### 业务层
+
+* 规划异常
+
+    用户名对应的密码不匹配PasswordNotMatchException
+    
+    用户未找到UsernameNotFoundException
+    
+    异常编写：继承ServiceException类
+
+* 接口和抽象方法
+
+    在IUserService接口中编写login()，并将登录的用户数据以用户对象封装返回，保存在cookie或者session中，避免反复获取使用多次的数据
+
+* 抽象方法实现
+
+
+#### 控制层
+
+#### 前端页面

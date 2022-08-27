@@ -47,6 +47,11 @@ public class UserServiceImpl implements IUserService {
         }
     }
 
+    @Override
+    public User login(String username, String password) {
+        return null;
+    }
+
     // md5加密密码
     private String getMD5Password(String password, String salt) {
         for (int i = 0; i < 3; i++) {
