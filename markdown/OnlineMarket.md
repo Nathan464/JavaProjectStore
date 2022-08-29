@@ -987,3 +987,93 @@ UserServiceImpl实现方法
 ```
 
 #### 控制层
+
+1. 设计请求
+    * 个人资料一打开就发送用户数据查询的请求
+    * /users/get_by_id -- GET -- HttpSession -- JsonResult
+    * 点击修改按钮发送用户数据修改
+    * /users/change_info -- POST -- HttpSession,User -- JsonResult
+
+2. 处理请求
+
+```
+    @RequestMapping("get_by_uid")
+    public JsonResult<User> getByUid(HttpSession session){
+        User user = userService.getByUid(getUidFromSession(session));
+        return new JsonResult<>(success,user);
+    }
+
+    @RequestMapping("change_info")
+    public JsonResult<Void> changeInfo(User user, HttpSession session){
+        // user中已存在：username、phone、email、gender；uid需重新封装
+        Integer uid = getUidFromSession(session);
+        String username = getUsernameFromSession(session);
+        userService.changeInfo(uid, username, user);
+        return new JsonResult<>(success);
+    }
+```
+
+3. 前端ajax
+
+```
+// $(document).ready 指在函数加载完成时自动执行function的内容
+<script type="text/javascript">
+	$(document).ready(function() {
+		$.ajax({
+			url: "/users/get_by_uid",
+			type: "GET",
+			dataType: "json",
+			success: function(json) {
+				if (json.state == 200) {
+					$("#username").val(json.data.username);
+					$("#phone").val(json.data.phone);
+					$("#email").val(json.data.email);
+
+					let radio = json.data.gender == 0 ? $("#gender-female") : $("#gender-male");
+					radio.prop("checked", "checked");
+				} else {
+					alert("获取用户信息失败！" + json.message);
+				    }
+			}
+		});
+	});
+
+	$("#btn-change-info").click(function() {
+		$.ajax({
+			url: "/users/change_info",
+			type: "POST",
+			data: $("#form-change-info").serialize(),
+			dataType: "json",
+			success: function(json) {
+				if (json.state == 200) {
+					alert("修改成功！");
+					location.href = "login.html";
+				} else {
+					alert("修改失败！" + json.message);
+				}
+			},
+			error: function(xhr) {
+				alert("您的登录信息已经过期，请重新登录！HTTP响应码：" + xhr.status);
+				location.href = "login.html";
+			}
+		});
+	});
+</script>
+```
+
+### 流程（上传头像）
+#### 持久层
+1. sql
+   
+    文件对象保存在系统上，并在数据库中记录文件路径，对应一个avatar更新语句
+    ```sql
+    update t_user set avatar=?, modified_user=?,modified_time=? where uid=?
+    ```
+
+2. 设计接口：在UserMapper接口中定义
+
+   @Param("SQL映射文件中#{}占位符的变量名")，解决SQL语句占位符和映射的接口方法的参数名不一致的强行注入
+
+#### 业务层
+#### 控制层
+#### 前端

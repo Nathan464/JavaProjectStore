@@ -37,4 +37,18 @@ public class UserController extends BaseController {
         return new JsonResult<>(success);
     }
 
+    @RequestMapping("get_by_uid")
+    public JsonResult<User> getByUid(HttpSession session){
+        User user = userService.getByUid(getUidFromSession(session));
+        return new JsonResult<>(success, user);
+    }
+
+    @RequestMapping("change_info")
+    public JsonResult<Void> changeInfo(User user, HttpSession session){
+        // user中已存在：username、phone、email、gender；uid需重新封装
+        Integer uid = getUidFromSession(session);
+        String username = getUsernameFromSession(session);
+        userService.changeInfo(uid, username, user);
+        return new JsonResult<>(success);
+    }
 }

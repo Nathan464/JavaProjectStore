@@ -34,9 +34,9 @@
     </select>
     <update id="updatePasswordByUid">
         UPDATE t_user
-        SET password=#{password},
-            modified_user=#{modifiedUser},
-            modified_time=#{modifiedTime}
+        SET password = #{password},
+            modified_user = #{modifiedUser},
+            modified_time = #{modifiedTime}
         WHERE uid = #{uid}
     </update>
     <select id="findByUid" resultMap="UserEntityMap">
@@ -45,10 +45,18 @@
         WHERE uid = #{uid}
     </select>
     <update id="updateInfoByUid">
-        UPDATE t_user SET <if test="phone!=null">phone=#{phone},</if>
-        <if test="email!=null">email=#{email},</if>
-        <if test="gender!=null">gender=#{gender},</if>
-        modified_user=#{modifiedUser},modified_time=#{modifiedTime}
-        WHERE uid=#{uid}
+        UPDATE t_user SET
+        <if test="phone!=null">phone = #{phone},</if>
+        <if test="email!=null">email = #{email},</if>
+        <if test="gender!=null">gender = #{gender},</if>
+        modified_user = #{modifiedUser},modified_time = #{modifiedTime}
+        WHERE uid = #{uid}
+    </update>
+    <update id="updateAvatarByUid">
+        UPDATE t_user
+        SET avatar = #{avatar},
+            modified_user = #{modifiedUser},
+            modified_time = #{modifiedTime}
+        WHERE uid = #{uid}
     </update>
 </mapper>

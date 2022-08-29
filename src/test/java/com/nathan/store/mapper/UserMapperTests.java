@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.junit4.SpringRunner;
 
+import javax.servlet.http.PushBuilder;
 import java.util.Date;
 
 @SpringBootTest // 标注测试类
@@ -25,27 +26,35 @@ public class UserMapperTests {
     }
 
     @Test
-    public void findByUsername(){
+    public void findByUsername() {
         User user = userMapper.findByUsername("tim");
         System.out.println(user);
     }
+
     @Test
-    public void updatePasswordByUid(){
-        userMapper.updatePasswordByUid(4,"123456","manager",new Date());
+    public void updatePasswordByUid() {
+        userMapper.updatePasswordByUid(4, "123456", "manager", new Date());
     }
 
     @Test
-    public void findByUid(){
+    public void findByUid() {
         System.out.println(userMapper.findByUid(4));
     }
 
     @Test
-    public void updateInfoByUid(){
+    public void updateInfoByUid() {
         User user = new User();
         user.setUid(7);
         user.setPhone("12222223434");
         user.setEmail("12213@qq.com");
         user.setGender(1);
         userMapper.updateInfoByUid(user);
+    }
+
+    @Test
+    public void updateAvatarByUid() {
+        userMapper.updateAvatarByUid(7,
+                "C:/Users/l1979/Desktop/mmexport1572852158194.jpg",
+                "admin", new Date());
     }
 }
