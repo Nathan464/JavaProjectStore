@@ -683,9 +683,9 @@ public class LoginInterceptor implements HandlerInterceptor {
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
         Object object = request.getSession().getAttribute("uid");
         // 用户为空则重定向
-        if (object==null){
-          response.sendRedirect("/web/login.html");
-          return false;
+        if (object == null) {
+            response.sendRedirect("/web/login.html");
+            return false;
         }
         return true;
     }
@@ -707,6 +707,7 @@ public class LoginInterceptor implements HandlerInterceptor {
 添加白名单（login、register、reg、product、index.html）、黑名单（需登录才能访问）
 
 借助WebMvcConfig接口注册过滤器
+
 ```java
 package com.nathan.store.config;
 
@@ -747,42 +748,64 @@ public class LoginInterceptorConfigurer implements WebMvcConfigurer {
 ```
 
 ### 流程（密码修改）
+
 #### 持久层
+
 1. 规划sql
 
 根据uid更改密码
+
 ```sql
-update t_user set password=?,modified_user=?,modified_time=? where uid=?
+update t_user
+set password=?,
+    modified_user=?,
+    modified_time=?
+where uid = ?
 ```
 
 根据uid查询用户数据
+
 ```sql
-select * from t_user where uid=?
+select *
+from t_user
+where uid = ?
 ```
 
 2. 设计接口和抽象方法
-UserMapper接口定义方法，将方法配置到映射文件UserMapper.xml中
+   UserMapper接口定义方法，将方法配置到映射文件UserMapper.xml中
+
 ```sql
-<update id="updatePasswordByUid">
-    UPDATE t_user SET password=#{password},
-                      modified_user=#{modifiedUser},
-                      modified_time=#{modifiedTime} 
-                  WHERE uid=#{uid}
-</update>
-<select id="findByUid" resultMap="UserEntityMap">
-    SELECT *FROM t_user WHERE uid=#{uid}
-</select>
+<
+update id="updatePasswordByUid">
+UPDATE t_user
+SET password=#{password},
+    modified_user=#{modifiedUser},
+    modified_time=#{modifiedTime}
+WHERE uid = #{uid}
+          < /
+update >
+    <
+select id = "findByUid" resultMap="UserEntityMap">
+SELECT *
+FROM t_user
+WHERE uid = #{uid}
+          < /
+select>
 ```
+
 #### 业务层
+
 1. 规划异常
 
    密码错误、is_delete=1、uid找不到、update过程异常
 
 2. 设计接口和方法
+
 ```
 void changePassword(Integer uid, String username, 
         String oldPassword, String newPassword);
 ```
+
 ```
 public void changePassword(Integer uid, String username, String oldPassword, String newPassword) {
         User user = userMapper.findByUid(uid);
@@ -800,10 +823,12 @@ public void changePassword(Integer uid, String username, String oldPassword, Str
         }
     }
 ```
+
 #### 控制层
+
 1. 处理异常
 
-  UpdateException配置到BaseController统一异常处理方法中
+UpdateException配置到BaseController统一异常处理方法中
 
 2. 设计请求
 
@@ -815,6 +840,150 @@ public void changePassword(Integer uid, String username, String oldPassword, Str
 
 响应结果：JsonResult
 
+```
+@RequestMapping("change_password")
+    public JsonResult<Void> changePassword(String oldPassword, String newPassword,HttpSession session){
+        Integer uid = getUidFromSession(session);
+        String username = getUsernameFromSession(session);
+        userService.changePassword(uid,username,oldPassword,newPassword);
+        return new JsonResult<>(success);
+    }
+```
 
 3. 处理请求
-#### 前端
+
+```
+public void changePassword(Integer uid, String username, String oldPassword, String newPassword) {
+        User user = userMapper.findByUid(uid);
+        if (user==null||user.getIsDelete()==1){
+            throw new UsernameNotFoundException("用户不存在");
+        }
+        String oldMd5Password = getMD5Password(oldPassword,user.getSalt());
+        if(!user.getPassword().equals(oldMd5Password)){
+            throw new PasswordNotMatchException("原密码错误");
+        }
+        String newMd5Password = getMD5Password(newPassword,user.getSalt());
+        Integer rows = userMapper.updatePasswordByUid(uid,newMd5Password,username,new Date());
+        if (rows!=1){
+            throw new UpdateException("更新数据时出现异常");
+        }
+    }
+```
+
+### 流程（修改用户资料）
+
+#### 持久层
+
+1. 规划sql
+
+根据uid更新用户信息
+
+```sql
+update t_user
+set phone=?,
+    gender=?,
+    modified_user=?,
+    modified_time=?
+where uid = ?
+```
+
+根据用户名查询数据
+
+```sql
+select *
+from t_user
+where uid = ?
+```
+
+2. 接口和抽象方法
+
+```
+    /**
+     * 更新用户数据
+     * @param user 用户
+     * @return 返回受影响的行数
+     */
+    Integer updateInfoByUid(User user);
+```
+
+UserMapper.xml映射
+
+```xml
+
+<update id="updateInfoByUid">
+    <!--if条件判断标签在test中的条件成立时才执行if标签内的语句-->
+    UPDATE t_user SET
+    <if test="phone!=null">phone=#{phone},</if>
+    <if test="email!=null">email=#{email},</if>
+    <if test="gender!=null">gender=#{gender},</if>
+    modified_user=#{modifiedUser},modified_time=#{modifiedTime}
+    WHERE uid=#{uid}
+</update>
+```
+
+#### 业务层
+
+1. 功能设计
+
+- 数据回显（获取信息填入到对应的文本框）
+- 用户点击修改按钮执行修改
+
+2. 异常处理
+
+- 数据未找到
+- 修改按钮执行前判断用户数据是否存在
+
+3. 接口和抽象方法
+
+```
+  /**
+  * 获取用户信息
+  * @param uid id
+  * @return 查询到返回用户信息，否则为空
+  */
+  User getByUid(Integer uid);
+
+  /**
+  * 更改用户信息
+  * @param uid id
+  * @param username 用户名
+  * @param user User对象
+  */
+  void changeInfo(Integer uid, String username, User user);
+```
+
+UserServiceImpl实现方法
+
+```
+    public User getByUid(Integer uid) {
+        User result = userMapper.findByUid(uid);
+        if (result==null||result.getIsDelete()==1){
+            throw new UsernameNotFoundException("用户未找到");
+        }
+        User user = new User();
+        user.setUsername(result.getUsername());
+        user.setEmail(result.getEmail());
+        user.setPhone(result.getPhone());
+        user.setGender(result.getGender());
+        return user;
+    }
+```
+
+```
+    public void changeInfo(Integer uid, String username, User user) {
+        // 方法传入的user对象包含phone、email、gender，需手动封装uid、username
+        User result = userMapper.findByUid(uid);
+        if (result==null||result.getIsDelete()==1){
+            throw new UsernameNotFoundException("用户未找到");
+        }
+        user.setUid(uid);
+        user.setUsername(username);
+        user.setModifiedUser(username);
+        user.setModifiedTime(new Date());
+        Integer rows = userMapper.updateInfoByUid(user);
+        if (rows!=1){
+            throw new UpdateException("更新数据产生异常");
+        }
+```
+
+#### 控制层

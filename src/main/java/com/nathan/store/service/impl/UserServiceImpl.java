@@ -8,7 +8,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.DigestUtils;
 
-import javax.servlet.http.HttpSession;
 import java.util.Date;
 import java.util.UUID;
 
@@ -86,6 +85,37 @@ public class UserServiceImpl implements IUserService {
         Integer rows = userMapper.updatePasswordByUid(uid,newMd5Password,username,new Date());
         if (rows!=1){
             throw new UpdateException("更新数据时出现异常");
+        }
+    }
+
+    @Override
+    public User getByUid(Integer uid) {
+        User result = userMapper.findByUid(uid);
+        if (result==null||result.getIsDelete()==1){
+            throw new UsernameNotFoundException("用户未找到");
+        }
+        User user = new User();
+        user.setUsername(result.getUsername());
+        user.setEmail(result.getEmail());
+        user.setPhone(result.getPhone());
+        user.setGender(result.getGender());
+        return user;
+    }
+
+    @Override
+    public void changeInfo(Integer uid, String username, User user) {
+        // 方法传入的user对象包含phone、email、gender，需手动封装uid、username
+        User result = userMapper.findByUid(uid);
+        if (result==null||result.getIsDelete()==1){
+            throw new UsernameNotFoundException("用户未找到");
+        }
+        user.setUid(uid);
+        user.setUsername(username);
+        user.setModifiedUser(username);
+        user.setModifiedTime(new Date());
+        Integer rows = userMapper.updateInfoByUid(user);
+        if (rows!=1){
+            throw new UpdateException("更新数据产生异常");
         }
     }
 

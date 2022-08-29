@@ -20,6 +20,27 @@ public interface IUserService {
      */
     User login(String username, String password);
 
-
+    /**
+     * 更改密码
+     * @param uid id
+     * @param username 用户名
+     * @param oldPassword 旧密码
+     * @param newPassword 新密码
+     */
     void changePassword(Integer uid, String username, String oldPassword, String newPassword);
+
+    /**
+     * 获取用户信息
+     * @param uid id
+     * @return 查询到返回用户信息，否则为空
+     */
+    User getByUid(Integer uid);
+
+    /**
+     * 更改用户信息
+     * @param uid id
+     * @param username 用户名
+     * @param user User对象
+     */
+    void changeInfo(Integer uid, String username, User user);
 }
