@@ -55,4 +55,11 @@ public class UserServiceTests {
         user.setGender(1);
         userService.changeInfo(7,"gang",user);
     }
+
+    @Test
+    public void changeAvatar(){
+        userService.changeAvatar(7,
+                "C:/Users/l1979/Desktop/mmexport1572852158194.jpg",
+                "gang");
+    }
 }

@@ -1062,10 +1062,12 @@ UserServiceImpl实现方法
 ```
 
 ### 流程（上传头像）
+
 #### 持久层
+
 1. sql
-   
-    文件对象保存在系统上，并在数据库中记录文件路径，对应一个avatar更新语句
+
+   文件对象保存在系统上，并在数据库中记录文件路径，对应一个avatar更新语句
     ```sql
     update t_user set avatar=?, modified_user=?,modified_time=? where uid=?
     ```
@@ -1075,5 +1077,304 @@ UserServiceImpl实现方法
    @Param("SQL映射文件中#{}占位符的变量名")，解决SQL语句占位符和映射的接口方法的参数名不一致的强行注入
 
 #### 业务层
+
+1. 异常规划
+    * 用户数据不存在
+    * 更新数据出错
+
+2. 设计接口和抽象方法
+
+```
+    /**
+     * 更改用户头像
+     * @param uid id
+     * @param avatar 头像文件路径
+     * @param username 用户名
+     */
+    void changeAvatar(Integer uid, String avatar,String username);
+```
+
+```
+    @Override
+    public void changeAvatar(Integer uid, String avatar, String username) {
+        // 判断用户数据是否存在
+        User result = userMapper.findByUid(uid);
+        if (result==null||result.getIsDelete()==1){
+            throw new UsernameNotFoundException("用户未找到");
+        }
+        Integer rows = userMapper.updateAvatarByUid(uid,avatar,username,new Date());
+        if (rows!=1){
+            throw new UpdateException("更新数据出现异常");
+        }
+    }
+```
+
 #### 控制层
+
+1. 规划异常
+   创建FileUploadException文件异常基类继承RuntimeException
+   FileEmptyException、FileSizeException、FileTypeException、FileUploadIOException、FileStateException
+2. 处理异常
+   在BaseController类中统一编写和处理,
+
+   @ExceptionHandler(**{ServiceException.class,FileUploadException.class}**)可接收数组类型的异常类
+
+```
+@ExceptionHandler({ServiceException.class,FileUploadException.class})  // 用于统一处理抛出的异常
+    public JsonResult<Void> handleException(Throwable e) {
+        JsonResult<Void> result = new JsonResult<>();
+        if (e instanceof UsernameDuplicatedException) {
+            result.setState(4000);
+            result.setMessage("用户名被占用");
+        } else if (e instanceof UsernameNotFoundException) {
+            result.setState(5001);
+            result.setMessage("用户未找到");
+        } else if (e instanceof PasswordNotMatchException) {
+            result.setState(5002);
+            result.setMessage("用户密码错误");
+        } else if (e instanceof InsertException) {
+            result.setState(5000);
+            result.setMessage("用户注册产生异常");
+        } else if (e instanceof UpdateException) {
+            result.setState(5003);
+            result.setMessage("更新数据时产生异常");
+        }else if (e instanceof FileEmptyException) {
+            result.setState(6000);
+            result.setMessage("文件为空");
+        }else if (e instanceof FileSizeException) {
+            result.setState(6001);
+            result.setMessage("文件过大");
+        }else if (e instanceof FileStateException) {
+            result.setState(6002);
+            result.setMessage("文件上传状态异常");
+        }else if (e instanceof FileTypeException) {
+            result.setState(6003);
+            result.setMessage("文件类型不支持");
+        }else if (e instanceof FileUploadIOException) {
+            result.setState(6004);
+            result.setMessage("文件读取异常");
+        }
+        return result;
+    }
+```
+
+3. 设计请求
+    * /users/change_avatar
+    * POST(GET请求提交的最大数据为2kB)
+    * HttpSession、String filename、MultipartFile file
+    * JsonResult返回图像路径
+
+4. 实现请求
+
+```
+    // 头像文件大小的最大值
+    public static final Integer AVATAR_MAX_SIZE = 10 * 1024 * 1024;
+    // 限制文件类型
+    public static final List<String> AVATAR_TYPE = new ArrayList<>();
+
+    static {
+        AVATAR_TYPE.add("image/jpeg");
+        AVATAR_TYPE.add("image/png");
+        AVATAR_TYPE.add("image/bmp");
+        AVATAR_TYPE.add("image/gif");
+    }
+
+    /**
+     * MultipartFile属于SpringMvc，用于获取文件类型，并自动将文件数据赋值给参数
+     *
+     * @param session session
+     * @param file    文件
+     * @return 文件路径
+     */
+    @RequestMapping("change_avatar")
+    public JsonResult<String> changeAvatar(HttpSession session,
+                                           @NotNull @RequestParam("file") MultipartFile file) {
+        if (!AVATAR_TYPE.contains(file.getContentType())) {
+            throw new FileTypeException("文件类型不支持");
+        }
+        if (file.isEmpty()) {
+            throw new FileEmptyException("文件为空");
+        }
+        if (file.getSize() > AVATAR_MAX_SIZE) {
+            throw new FileSizeException("文件过大");
+        }
+        String uploadParent = session.getServletContext().getRealPath("upload");
+        File directory = new File(uploadParent);
+        if (!directory.exists()) { //检测目录是否存在
+            directory.mkdirs(); //创建目录
+        }
+        // 获取文件名，利用UUID随机生成字符串作为文件名，保留文件后缀
+        String filename = file.getOriginalFilename(); // 获取原始文件名
+        assert filename != null;
+        int index = filename.indexOf(".");
+        String suffix = filename.substring(index);
+        String head = UUID.randomUUID().toString().toUpperCase();
+        String realFileName = suffix + head; // 后缀和随机字符串拼接成新文件名以供后续使用
+        File createFile = new File(directory, realFileName); //空文件
+        try {
+            file.transferTo(createFile); // 将原始数据传给新文件，要求文件后缀一致
+        } catch (IOException e) {
+            throw new FileUploadIOException("文件读写异常");
+        } catch (FileStateException e) {
+            throw new FileStateException("文件状态异常");
+        }
+        Integer uid = getUidFromSession(session);
+        String username = getUsernameFromSession(session);
+        // 返回头像的相对路径
+        String avatar = "/upload/" + realFileName;
+        userService.changeAvatar(uid, avatar, username);
+        return new JsonResult<>(success, avatar);
+    }
+```
+
+#### 前端
+
+1. 更改默认的大小限制
+    * SpringMVC默认为1MB文件可上传，需要在properties文件中配置spring.servlet.multipart.max-file-size=10MB;
+    * serialize()：将表单数据自动拼接成key=value的结构进行提交，一般为提交普通控件类型中的数据(text/password/radio)
+    * FormData类：将表单中数据保持原有结构进行数据提交；new FormData($("#表单名")[数据下标索引])
+    * Ajax默认按照字符串处理数据，以字符串形式提交数据；processData: false, // processData处理数据 contentType: false, //
+      contentType发送数据的格式
+
+2. 更新头像后头像不在修改按钮点击前显示，
+    * 头像使用cookie保存联合ready方法自动读取cookie可以解决，
+    * cookie使用前需要导入cookie.js文件
+    * 使用script标签在head头部标签内导入
+    * ```<script src="cookie.js路径" type="text/javascript" charset="utf-8"></script>```
+    * 头像更改完毕后将最新头像地址保存到cookie中，同名保存会覆盖cookie的值
+
+        ```
+       <script type="text/javascript">
+                $(document).ready(function () {
+                    $("#img-avatar").attr("src", $.cookie("avatar"));
+                });
+ 
+                $("#btn-change-avatar").click(function() {
+                    $.ajax({
+                        url: "/users/change_avatar",
+                        type: "POST",
+                        data: new FormData($("#form-change-avatar")[0]),
+                        dataType: "JSON",
+                        processData: false, // processData处理数据
+                        contentType: false, // contentType发送数据的格式
+                        success: function(json) {
+                            if (json.state == 200) {
+                                $("#img-avatar").attr("src", json.data); // 设置头像地址
+                                $.cookie("avatar", json.data, {expires: 7}); // cookie头像地址覆盖
+                            } else {
+                                alert("修改失败！" + json.message);
+                            }
+                        },
+                        error: function(xhr) {
+                            alert("您的登录信息已经过期，请重新登录！HTTP响应码：" + xhr.status);
+                            location.href = "login.html";
+                        }
+                    });
+                });
+            </script>
+       ```
+
+### 流程（新增收货地址）
+
+数据库创建、新增收货地址（address实体类）
+
+#### 持久层
+
+1. 开发顺序：新增、列表展示、设置默认地址、修改、删除
+2. sql
+
+```sql
+insert into t_address (除aid字段的所有字段)
+values (字段值列表) // properties中控制最多20条地址
+select count(*)
+from t_address
+where uid = ?
+```
+
+3. 接口和抽象方法
+
+```
+     /**
+     * 插入收货地址
+     * @param address 地址数据
+     * @return 影响的行数
+     */
+    Integer insert(Address address);
+
+    /**
+     * 根据用户id统计收货地址
+     * @param uid id
+     * @return 收货地址总数
+     */
+    Integer countByUid(Integer uid);
+```
+
+4. sql映射
+   创建AddressMapper.xml
+
+#### 业务层
+
+1. 规划异常：插入地址为首条设置为默认地址（查询到地址总数为0，设置is_default为1，总数大于20，抛出AddressCountLimitException）
+2. 接口和抽象方法
+
+```void addNewAddress(Integer uid, String username, Address address);```
+
+    @Value("${user.address.max-count}")  // properties读取数据
+
+```
+    private final AddressMapper addressMapper;
+    @Value("${user.address.max-count}")  // properties读取数据
+    private Integer maxCount;
+
+    @Autowired(required = false)
+    public IAddressImpl(AddressMapper addressMapper) {
+        this.addressMapper = addressMapper;
+    }
+
+    @Override
+    public void addNewAddress(Integer uid, String username, Address address) {
+        Integer count = addressMapper.countByUid(uid);
+        if (count >= maxCount) {
+            throw new AddressCountLimitException("收货地址超出上限");
+        }
+        address.setUid(uid);
+        Integer isDefault = count == 0 ? 1 : 0;
+        address.setIsDefault(isDefault);
+        // 补全修改者、修改时间等信息
+        address.setModifiedUser(username);
+        address.setModifiedTime(new Date());
+        address.setCreatedUser(username);
+        address.setCreatedTime(new Date());
+        Integer row = addressMapper.insert(address);
+        if (row!=1){
+            throw new InsertException("插入数据时发生异常");
+        }
+    }
+```
+
+#### 控制层
+
+1. 异常处理
+
+```
+else if (e instanceof AddressCountLimitException) {
+            result.setState(7000);
+            result.setMessage("收货地址超出限制");
+}
+```
+
+2. 设计请求
+
+> /address/add_new_address
+>
+> POST
+>
+> Address address，HttpSession session
+>
+> JsonResult返回Void
+
+3. 处理请求
+
+创建新的AddressController，处理与地址相关的请求和响应
+
 #### 前端
