@@ -33,7 +33,7 @@ public class UserServiceTests {
     }
     @Test
     public void login(){
-        User user = userService.login("li","123456");
+        User user = userService.login("gang","123456");
         System.out.println(user);
     }
 

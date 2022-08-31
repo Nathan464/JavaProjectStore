@@ -1377,4 +1377,263 @@ else if (e instanceof AddressCountLimitException) {
 
 创建新的AddressController，处理与地址相关的请求和响应
 
-#### 前端
+### 流程（获取省区市列表）
+
+1. 持久层
+   构建数据库；编写实体类District；查询语句
+
+   ```select * from t_dict_district where parent=? order by code ASC```
+
+   抽象方法
+   ```
+    /**
+     *根据父代号查询
+     * @param parent 代号
+     * @return 区域列表
+     */
+    List<District> findByParent(Integer parent);
+    String findNameByCode(String code);
+   ```
+   DistrictMapper.xml中的映射
+   ```sql
+   <select id="findByParent" resultType="com.nathan.store.entity.District">
+        select * from t_dict_district where parent=#{parent} order by code
+   </select>
+   <select id="findNameByCode" resultType="java.lang.String">
+        select name from t_dict_district where code=#{code}
+   </select>
+   ```
+2. 业务层
+   IDistrictService
+   ```
+   List<District> getParent(String parent);
+   String getNameByCode(String code);
+   ```
+   DistrictServiceImpl
+   ```
+    @Autowired(required = false)
+    private DistrictMapper districtMapper;
+    @Override
+    public List<District> getParent(String parent) {
+        List<District> list = districtMapper.findByParent(parent);
+        // 无关数据可以设置为null减少数据量
+        for (District d:list) {
+            d.setId(null);
+            d.setParent(null);
+        }
+        return list;
+    }
+    @Override
+    public String getNameByCode(String code) {
+        return districtMapper.findNameByCode(code);
+    }
+    ```
+   业务层优化
+    ```
+   // 添加用户的收货地址的业务层
+   @Autowired(required = false)
+   private IDistrictService districtService;
+   ```
+   在addNewAddress方法中将districtService接口中获取的省市区数据转移到address对象中
+   ```
+   //根据districtService获取数据将省市区添加到IAddressImpl中的addNewAddress的address
+   String provinceName = districtService.getNameByCode(address.getProvinceCode());
+   String cityName = districtService.getNameByCode(address.getCityCode());
+   String areaName = districtService.getNameByCode(address.getAreaCode());
+   address.setProvinceName(provinceName);
+   address.setCityName(cityName);
+   address.setAreaName(areaName);
+   ```
+3. 控制层
+    1. 请求设计
+   > /districts&emsp;&emsp;GET&emsp;&emsp;String parent&emsp;&emsp;JsonResult返回ListDistrict
+    2. 请求处理，创建DistrictController
+   ```
+    @Autowired(required = false)
+    private IDistrictService districtService;
+
+    // districts开头的请求拦截到getByParent方法中
+    @RequestMapping({"/", " "}) // districts后续跟/或空格都能拦截到
+    public JsonResult<List<District>> getByParent(String parent) {
+        List<District> list = districtService.getParent(parent);
+        return new JsonResult<>(success, list);
+    }
+   ```
+   将districts中的请求添加LoginInterceptorConfigurer的拦截白名单中：patterns.add("/districts/**")
+
+4. 前端
+   注释掉通过js完成省市区列表加载的js代码
+   检查前端页面在提交省市区时是否有相关的name和id属性
+
+### 流程（收货地址展示）
+
+持久层
+
+1. sql:
+    ```sql
+    select * from t_address where uid=? order by is_default DESC,created_time DESC
+    ```
+2. 接口
+   ```
+     /**
+     * 以uid查询所有用户地址
+     * @param uid uid
+     * @return 地址集合
+     */
+     List<Address> findByUid(Integer uid);
+   ```
+3. AddressMapper.xml添加方法映射
+    ```xml
+    <!--查询某用户的收货地址列表数据：List<Address> findByUid(Integer uid)-->
+    <select id="findByUid" resultMap="AddressEntityMap">
+        SELECT
+            *
+        FROM
+            t_address
+        WHERE
+            uid=#{uid}
+        ORDER BY
+            is_default DESC, created_time DESC
+    </select>
+    ```
+
+业务层
+
+1. 设计接口和抽象方法
+    ```
+    List<Address> getByUid(Integer uid);
+    ```
+    ```
+    @Override
+    public List<Address> getByUid(Integer uid) {
+        List<Address> list = addressMapper.findByUid(uid);
+        // 去除不需要展示的内容
+        for (Address address:list){
+            address.setUid(null);
+            address.setAid(null);
+            address.setProvinceCode(null);
+            address.setCityCode(null);
+            address.setAreaCode(null);
+            address.setTel(null);
+            address.setCreatedTime(null);
+            address.setIsDefault(null);
+            address.setCreatedUser(null);
+            address.setModifiedTime(null);
+            address.setModifiedUser(null);
+        }
+        return list;
+    }
+   ```
+
+控制层
+
+1. 请求设计
+   > /addresses&emsp;&emsp;HttpSession session&emsp;&emsp;GET&emsp;&emsp;JsonResult返回List-Address
+2. 实现请求
+   ```
+    @RequestMapping({"", "/"})
+    public JsonResult<List<Address>> getByUid(HttpSession session) {
+        Integer uid = getUidFromSession(session);
+        List<Address> list = addressService.getByUid(uid);
+        return new JsonResult<>(success, list);
+    }
+   ```
+
+### 流程（设置默认地址）
+
+持久层
+
+1. sql
+   检测想设置的默认收货地址的数据是否存在
+   ```select * from t_address aid=?```
+   修改默认地址前，将所有收货地址设为非默认
+   ```update t_address set is_default=0 where uid=?```
+   将选中地址设置为默认
+   ```update t_address set is_default=1, modified_user=?,modified_time=? where aid=?```
+2. 设计抽象方法
+   在AddressMapper接口中定义方法
+   ```
+   /**
+     * 根据aid查询收货地址
+     *
+     * @param Aid 收货地址id
+     * @return 收货地址数据，查找为无返回null
+     */
+    Address findByAid(Integer Aid);
+
+    /**
+     * 根据用户的uid值来修改用户的收货地址设置为非默认
+     *
+     * @param uid 用户id
+     * @return 返回受影响的函数
+     */
+    Integer updateNonDefaultByUid(Integer uid);
+
+    /**
+     *
+     * @param aid 地址id
+     * @param modifiedUser 更改者
+     * @param modifiedTime 更改时间
+     * @return 受影响行数
+     */
+    Integer updateDefaultByAid(Integer aid, String modifiedUser, Date modifiedTime);
+   ```
+3. 配置AddressMapper.xml的sql映射
+
+业务层
+
+1. 可能的异常：UpdateException、AccessDeniedException、AddressNotFoundException
+2. 抽象方法```void setDefault(Integer aid, Integer uid, String username);```
+3. 实现抽象方法
+   ```
+    @Override
+    public void setDefault(Integer aid, Integer uid, String username) {
+        Address address = addressMapper.findByAid(aid);
+        if (address == null) {
+            throw new AddressNotFoundException("地址未找到");
+        }
+        // 检测收货地址数据的归属人
+        if (!address.getUid().equals(uid)) {
+            throw new AccessDeniedException("非法访问数据");
+        }
+        // 先将所有地址设置为非默认
+        Integer rows = addressMapper.updateNonDefaultByUid(uid);
+        if (rows < 1) {
+            throw new UpdateException("更新数据产生未知异常");
+        }
+        // 设置默认收货地址
+        Integer row = addressMapper.updateDefaultByAid(aid, username, new Date());
+        if (rows != 1) {
+            throw new UpdateException("更新数据产生未知异常");
+        }
+    }
+   ```
+
+控制层
+
+1. 在BaseController处理异常
+   ```
+   else if (e instanceof AddressNotFoundException) {
+            result.setState(7001);
+            result.setMessage("收货地址未找到");
+   } else if (e instanceof AccessDeniedException) {
+            result.setState(8000);
+            result.setMessage("非法访问数据");
+   }
+   ```
+2. 设计请求
+   * /addresses/{aid}/set_default
+   * @PathVariable("aid") Integer aid, HttpSession session
+   * GET
+   * JsonResult<>
+3. 完成请求
+   ```
+    // RestFul风格请求编写
+    @RequestMapping("{aid}/set_default")
+    public JsonResult<Void> setDefault(@PathVariable("aid") Integer aid,
+                                       HttpSession session) {
+        addressService.setDefault(aid, getUidFromSession(session),
+                getUsernameFromSession(session));
+        return new JsonResult<>(success);
+    }
+   ```

@@ -35,7 +35,7 @@ public class UserController extends BaseController {
         User user = userService.login(username, password);
         session.setAttribute("uid", user.getUid());
         session.setAttribute("username", user.getUsername());
-        return new JsonResult<User>(success, user);
+        return new JsonResult<>(success, user);
     }
 
     @RequestMapping("change_password")

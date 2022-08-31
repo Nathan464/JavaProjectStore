@@ -20,4 +20,9 @@ public class AddressServiceTests {
         address.setName("nat");
         addressService.addNewAddress(1, "admin", address);
     }
+
+    @Test
+    public void setDefault(){
+        addressService.setDefault(4,7,"admin");
+    }
 }

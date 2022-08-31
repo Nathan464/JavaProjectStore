@@ -2,61 +2,89 @@
 <!DOCTYPE mapper
         PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
-<!--useGeneratedKeys="true" keyProperty="uid"以uid字段自增-->
 <mapper namespace="com.nathan.store.mapper.UserMapper">
-    <!--自定义映射规则
-        id: 负责分配唯一的id，对应resultMap=""属性的取值
-        type: 类属性，表示数据库中的查询结果与java实体类进行映射
-    -->
     <resultMap id="UserEntityMap" type="com.nathan.store.entity.User">
-        <!--表字段与类属性不一致的字段需要匹配
-            column表属性；property类中的属性
-            主键的映射不可省略
-        -->
-        <result column="uid" property="uid"/>
+        <id column="uid" property="uid"/>
         <result column="is_delete" property="isDelete"/>
         <result column="created_user" property="createdUser"/>
         <result column="created_time" property="createdTime"/>
         <result column="modified_user" property="modifiedUser"/>
         <result column="modified_time" property="modifiedTime"/>
     </resultMap>
+
+    <!-- 插入用户数据：Integer insert(User user) -->
     <insert id="insert" useGeneratedKeys="true" keyProperty="uid">
-        INSERT INTO t_user (username, password, salt, phone, email, gender, avatar,
-                            is_delete, created_user, created_time, modified_user, modified_time)
-        VALUES (#{username}, #{password}, #{salt}, #{phone}, #{email}, #{gender}, #{avatar},
-                #{isDelete}, #{createdUser}, #{createdTime}, #{modifiedUser}, #{modifiedTime})
+        INSERT INTO
+            t_user (username, password, salt, phone, email, gender, avatar, is_delete, created_user, created_time, modified_user, modified_time)
+        VALUES
+            (#{username}, #{password}, #{salt}, #{phone}, #{email}, #{gender}, #{avatar}, #{isDelete}, #{createdUser}, #{createdTime}, #{modifiedUser}, #{modifiedTime})
     </insert>
-    <!--查询结果为单个或多个对象，需要定义resultType或resultMap（表字段和类对象属性的字段名称不一致）以指定定义映射类的类型-->
+
+    <!-- 根据用户名查询用户数据：User findByUsername(String username) -->
     <select id="findByUsername" resultMap="UserEntityMap">
-        SELECT *
-        FROM t_user
-        WHERE username = #{username}
+        SELECT
+            *
+        FROM
+            t_user
+        WHERE
+            username = #{username}
     </select>
+
+    <!-- 根据uid更新用户的密码：
+	     Integer updatePasswordByUid(
+		    @Param("uid") Integer uid,
+		    @Param("password") String password,
+		    @Param("modifiedUser") String modifiedUser,
+		    @Param("modifiedTime") Date modifiedTime) -->
     <update id="updatePasswordByUid">
-        UPDATE t_user
-        SET password = #{password},
+        UPDATE
+            t_user
+        SET
+            password = #{password},
             modified_user = #{modifiedUser},
             modified_time = #{modifiedTime}
-        WHERE uid = #{uid}
+        WHERE
+            uid = #{uid}
     </update>
+
+    <!-- 根据用户id查询用户数据：User findByUid(Integer uid) -->
     <select id="findByUid" resultMap="UserEntityMap">
-        SELECT *
-        FROM t_user
-        WHERE uid = #{uid}
+        SELECT
+            *
+        FROM
+            t_user
+        WHERE
+            uid = #{uid}
     </select>
+
+    <!-- 根据uid更新用户个人资料：Integer updateInfoByUid(User user) -->
     <update id="updateInfoByUid">
-        UPDATE t_user SET
-        <if test="phone!=null">phone = #{phone},</if>
-        <if test="email!=null">email = #{email},</if>
-        <if test="gender!=null">gender = #{gender},</if>
-        modified_user = #{modifiedUser},modified_time = #{modifiedTime}
-        WHERE uid = #{uid}
-    </update>
-    <update id="updateAvatarByUid">
-        UPDATE t_user
-        SET avatar = #{avatar},
+        UPDATE
+            t_user
+        SET
+            <if test="phone != null">phone = #{phone},</if>
+            <if test="email != null">email = #{email},</if>
+            <if test="gender != null">gender = #{gender},</if>
             modified_user = #{modifiedUser},
             modified_time = #{modifiedTime}
-        WHERE uid = #{uid}
+        WHERE
+            uid = #{uid}
+    </update>
+
+    <!-- 根据uid更新用户的头像
+	     Integer updateAvatarByUid(
+		    @Param("uid") Integer uid,
+		    @Param("avatar") String avatar,
+		    @Param("modifiedUser") String modifiedUser,
+		    @Param("modifiedTime") Date modifiedTime) -->
+    <update id="updateAvatarByUid">
+        UPDATE
+            t_user
+        SET
+            avatar = #{avatar},
+            modified_user = #{modifiedUser},
+            modified_time = #{modifiedTime}
+        WHERE
+            uid = #{uid}
     </update>
 </mapper>

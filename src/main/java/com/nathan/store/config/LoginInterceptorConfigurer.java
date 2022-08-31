@@ -18,7 +18,7 @@ public class LoginInterceptorConfigurer implements WebMvcConfigurer {
         HandlerInterceptor interceptor = new LoginInterceptor();
         // 拦截器直接放行的资源放到一个list集合
         List<String> patterns = new ArrayList<>();
-        patterns.add("bootstrap3/**1");
+        patterns.add("/bootstrap3/**");
         patterns.add("/css/**");
         patterns.add("/images/**");
         patterns.add("/js/**");
@@ -28,6 +28,7 @@ public class LoginInterceptorConfigurer implements WebMvcConfigurer {
         patterns.add("/web/index.html");
         patterns.add("/users/reg");
         patterns.add("/users/login");
+        patterns.add("/districts/**");
         registry.addInterceptor(interceptor)
                 .addPathPatterns("/**") // 拦截所有url
                 .excludePathPatterns(patterns); // 除了指定路径

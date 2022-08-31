@@ -1,6 +1,7 @@
 package com.nathan.store.service;
 
 import com.nathan.store.entity.User;
+import org.springframework.stereotype.Service;
 
 import javax.servlet.http.HttpSession;
 

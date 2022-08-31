@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html lang="">
 
 	<head>
 		<meta charset="UTF-8">
@@ -295,6 +295,7 @@
 
 			$(document).ready(function() {
 				showProvinceList();
+				// city-list、area-list默认值
 				$("#city-list").append(defaultOption);
 				$("#area-list").append(defaultOption);
 			});
@@ -317,7 +318,7 @@
 					success: function(json) {
 						if (json.state == 200) {
 							let list = json.data;
-							console.log("count=" + list.length);
+							// console.log("count=" + list.length);
 							for (let i = 0; i < list.length; i++) {
 								console.log(list[i].name);
 								let option = '<option value="' + list[i].code + '">' + list[i].name + '</option>';

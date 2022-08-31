@@ -14,7 +14,7 @@ public class BaseController {
 
     // 请求处理方法，返回值为需要传递到前端的数据
     // 自动将异常对象传递给此方法的参数列表上
-    @ExceptionHandler({ServiceException.class,FileUploadException.class})  // 用于统一处理抛出的异常
+    @ExceptionHandler({ServiceException.class, FileUploadException.class})  // 用于统一处理抛出的异常
     public JsonResult<Void> handleException(Throwable e) {
         JsonResult<Void> result = new JsonResult<>();
         if (e instanceof UsernameDuplicatedException) {
@@ -32,30 +32,37 @@ public class BaseController {
         } else if (e instanceof UpdateException) {
             result.setState(5001);
             result.setMessage("更新数据时产生异常");
-        }else if (e instanceof FileEmptyException) {
+        } else if (e instanceof FileEmptyException) {
             result.setState(6000);
             result.setMessage("文件为空");
-        }else if (e instanceof FileSizeException) {
+        } else if (e instanceof FileSizeException) {
             result.setState(6001);
             result.setMessage("文件过大");
-        }else if (e instanceof FileStateException) {
+        } else if (e instanceof FileStateException) {
             result.setState(6002);
             result.setMessage("文件上传状态异常");
-        }else if (e instanceof FileTypeException) {
+        } else if (e instanceof FileTypeException) {
             result.setState(6003);
             result.setMessage("文件类型不支持");
-        }else if (e instanceof FileUploadIOException) {
+        } else if (e instanceof FileUploadIOException) {
             result.setState(6004);
             result.setMessage("文件读取异常");
-        }else if (e instanceof AddressCountLimitException) {
+        } else if (e instanceof AddressCountLimitException) {
             result.setState(7000);
             result.setMessage("收货地址超出限制");
+        } else if (e instanceof AddressNotFoundException) {
+            result.setState(7001);
+            result.setMessage("收货地址未找到");
+        } else if (e instanceof AccessDeniedException) {
+            result.setState(8000);
+            result.setMessage("非法访问数据");
         }
         return result;
     }
 
     /**
      * 获取session中的uid
+     *
      * @param session session对象
      * @return uid
      */
@@ -65,10 +72,11 @@ public class BaseController {
 
     /**
      * 获取session中的用户名
+     *
      * @param session session对象
      * @return 用户名
      */
-    protected final String getUsernameFromSession(HttpSession session){
+    protected final String getUsernameFromSession(HttpSession session) {
         return (String) session.getAttribute("username");
     }
 }
