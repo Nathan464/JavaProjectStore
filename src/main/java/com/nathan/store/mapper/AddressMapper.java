@@ -54,4 +54,18 @@ public interface AddressMapper {
      * @return 受影响行数
      */
     Integer updateDefaultByAid(Integer aid, String modifiedUser, Date modifiedTime);
+
+    /**
+     * 根据aid删除地址
+     * @param aid id
+     * @return 受影响行数
+     */
+    Integer deleteByAid(Integer aid);
+
+    /**
+     * 根据uid查询用户最新的地址数据
+     * @param uid id
+     * @return 最新地址数据
+     */
+    Address findLastModified(Integer uid);
 }

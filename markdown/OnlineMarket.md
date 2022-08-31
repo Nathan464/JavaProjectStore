@@ -1622,10 +1622,10 @@ else if (e instanceof AddressCountLimitException) {
    }
    ```
 2. 设计请求
-   * /addresses/{aid}/set_default
-   * @PathVariable("aid") Integer aid, HttpSession session
-   * GET
-   * JsonResult<>
+    * /addresses/{aid}/set_default
+    * @PathVariable("aid") Integer aid, HttpSession session
+    * GET
+    * JsonResult<>
 3. 完成请求
    ```
     // RestFul风格请求编写
@@ -1637,3 +1637,359 @@ else if (e instanceof AddressCountLimitException) {
         return new JsonResult<>(success);
     }
    ```
+
+### 流程（删除收货地址）
+
+持久层
+
+1. sql
+
+   判断数据是否存在、判断该地址数据归属人是否是当前用户（前面已开发）
+2. 执行删除收货地址
+
+```sql
+delete
+* from t_address where aid=?
+```
+
+如果删除的是默认地址，剩下地址中的最新的地址设置为默认地址
+
+```sql
+select *
+from where uid=?
+order by DESC limit 0, 1 // limit接收参数：limit (pageNum-1)*pageSize,pageSize
+```
+
+本身只有一条地址且为默认，删除后无需其它操作
+
+抽象方法
+AddressMapper接口设计抽象方法
+
+```
+   /**
+   * 根据aid删除地址
+   * @param aid id
+   * @return 受影响行数
+   */
+   Integer deleteByAid(Integer aid);
+
+    /**
+     * 根据uid查询用户最新的地址数据
+     * @param uid id
+     * @return 最新地址数据
+     */
+    Address findLastModified(Integer uid);
+```
+
+AddressMapper.xml映射
+
+```xml
+<!-- 根据收货地址id删除数据：Integer deleteByAid(Integer aid) -->
+<delete id="deleteByAid">
+    DELETE FROM
+    t_address
+    WHERE
+    aid=#{aid}
+</delete>
+```
+
+```xml
+<!-- 查询某用户最后修改的收货地址：Address findLastModified(Integer uid) -->
+<select>id="findLastModified" resultMap="AddressEntityMap">
+    SELECT
+    *
+    FROM
+    t_address
+    WHERE
+    uid=#{uid}
+    ORDER BY
+    modified_time DESC
+    LIMIT 0,1
+</select>
+```
+
+业务层
+
+1. 异常规划：DeleteException
+2. 在IAddressService规划抽象方法
+   ```void delete(Integer aid, Integer uid, String username);```
+3. 抽象方法实现
+
+```
+    @Override
+    public void delete(Integer aid, Integer uid, String username) {
+        Address address = addressMapper.findByAid(aid);
+        if (address == null) {
+            throw new AddressNotFoundException("地址未找到");
+        }
+        if (!address.getUid().equals(uid)) {
+            throw new AccessDeniedException("非法访问数据");
+        }
+        Integer row = addressMapper.deleteByAid(aid);
+        if (row != 1) {
+            throw new DeleteException("删除过程产生未知异常");
+        }
+        Integer count = addressMapper.countByUid(uid);
+        if (count == 0) {
+            return;
+        }
+        if (address.getIsDefault() == 1) {
+            // 将该条数据的is_default设置为1
+            Address lastAddress = addressMapper.findLastModified(uid);
+            row = addressMapper.updateDefaultByAid(lastAddress.getAid(), username, new Date());
+        }
+        if (row != 1) {
+            throw new UpdateException("更新数据产生未知异常");
+        }
+    }
+```
+
+控制层
+
+1. 处理异常
+
+```
+   else if (e instanceof DeleteException) {
+       result.setState(8001);
+       result.setMessage("删除数据产生异常");
+   }
+```
+
+2. 设计请求
+   /addresses/{aid}/delete&emsp;&emsp;Integer aid,HttpSession session&emsp;&emsp;JsonResult<>
+3. 请求处理
+
+``` 
+    @RequestMapping("{aid}/delete")
+    public JsonResult<Void> delete(@PathVariable("aid") Integer aid,
+                                   HttpSession session) {
+        addressService.delete(aid, getUidFromSession(session),
+                getUsernameFromSession(session));
+        return new JsonResult<>(success);
+    }
+```
+
+### 流程（热销商品）
+
+创建数据库
+
+1. 编写实体类
+
+```java
+package com.nathan.store.entity;
+
+import java.io.Serializable;
+
+public class Product extends BaseEntity implements Serializable {
+    private Integer id;
+    private Integer categoryId;
+    private String itemType;
+    private String title;
+    private String sellPoint;
+    private Long price;
+    private Integer num;
+    private String image;
+    private Integer status;
+    private Integer priority;
+    // 后续添加getter、setter、equals、hashcode、toString
+}
+```
+
+持久层
+
+1. 查询热销商品列表的SQL语句大致是
+
+```mysql
+SELECT *
+FROM t_product
+WHERE status = 1
+ORDER BY priority DESC
+LIMIT 0,4
+```
+```
+SELECT *
+FROM t_product
+WHERE id = #{id}
+```
+
+2. 接口&抽象方法
+   ```
+   public interface ProductMapper {
+      List<Product> findHotList();
+      Product findById(Integer id);
+   }
+   ```
+3. ProductMapper.xml文件，并在文件中配置findHotList()方法的映射。
+
+```xml
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.cy.store.mapper.ProductMapper">
+    <resultMap id="ProductEntityMap" type="com.nathan.store.entity.Product">
+        <id column="id" property="id"/>
+        <result column="category_id" property="categoryId"/>
+        <result column="item_type" property="itemType"/>
+        <result column="sell_point" property="sellPoint"/>
+        <result column="created_user" property="createdUser"/>
+        <result column="created_time" property="createdTime"/>
+        <result column="modified_user" property="modifiedUser"/>
+        <result column="modified_time" property="modifiedTime"/>
+    </resultMap>
+
+    <!-- 查询热销商品的前四名：List<Product> findHostList() -->
+    <select id="findHotList" resultMap="ProductEntityMap">
+        SELECT
+        *
+        FROM
+        t_product
+        WHERE
+        status=1
+        ORDER BY
+        priority DESC
+        LIMIT 0,4
+    </select>
+    <!--  根据商品id查询商品详情：Product findById(Integer id)  -->
+    <select id="findById" resultMap="ProductEntityMap">SELECT *
+        FROM t_product
+        WHERE id = #{id}
+    </select>
+</mapper>
+```
+
+业务层
+
+1.创建IProductService接口，并在接口中添加findHotList()方法。
+
+```java
+package com.nathan.store.service;
+
+import com.nathan.store.entity.Product;
+
+import java.util.List;
+
+/** 处理商品数据的业务层接口 */
+public interface IProductService {
+    /**
+     * 查询热销商品前四名
+     * @return 热销商品前四名的集合
+     */
+    List<Product> findHotList();
+
+    Product findById(Integer id);
+}
+```
+
+2. 创建ProductServiceImpl类，并添加@Service注解；在类中声明持久层对象以及实现接口中的方法。
+
+```java
+package com.nathan.store.service.impl;
+
+import com.nathan.store.entity.Product;
+import com.nathan.store.mapper.ProductMapper;
+import com.nathan.store.service.IProductService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+
+/** 处理商品数据的业务层实现类 */
+@Service
+public class ProductServiceImpl implements IProductService {
+    @Autowired(required = false)
+    private ProductMapper productMapper;
+
+    @Override
+    public List<Product> findHotList() {
+        List<Product> list = productMapper.findHotList();
+        for (Product product : list) {
+            product.setPriority(null);
+            product.setCreatedUser(null);
+            product.setCreatedTime(null);
+            product.setModifiedUser(null);
+            product.setModifiedTime(null);
+        }
+        return list;
+    }
+
+    @Override
+    public Product findById(Integer id) {
+        Product product = productMapper.findById(id);
+        if (product == null) {
+            throw new ProductNotFoundException("商品未找到");
+        }
+        product.setPriority(null);
+        product.setCreatedUser(null);
+        product.setCreatedTime(null);
+        product.setModifiedUser(null);
+        product.setModifiedTime(null);
+        return product;
+    }
+}
+```
+
+控制层
+
+1. 设计请求
+
+设计用户提交的请求，并设计响应的方式。
+
+	请求路径：/products/hot_list
+	请求参数：无
+	请求类型：GET
+	响应结果：JsonResult<List<Product>>
+	是否拦截：否，需要将index.html和products/**添加到白名单
+
+在LoginInterceptorConfigurer类中将index.html页面和products/**请求添加到白名单。
+
+```
+   patterns.add("/web/index.html");
+   patterns.add("/products/**");
+```
+
+2. 处理请求
+
+创建ProductController类继承自BaseController类，类添加@RestController和@RequestMapping("products")注解，并在类中添加业务层对象。
+
+```java
+package com.nathan.store.controller;
+
+import com.nathan.store.entity.Product;
+import com.nathan.store.service.IProductService;
+import com.nathan.store.util.JsonResult;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("products")
+public class ProductController extends BaseController {
+    @Autowired
+    private IProductService productService;
+
+    @RequestMapping("hot_list")
+    public JsonResult<List<Product>> getHotList() {
+        List<Product> list = productService.findHotList();
+        return new JsonResult<>(success, list);
+    }
+
+    @GetMapping("{id}/details")
+    public JsonResult<Product> getById(@PathVariable("id") Integer id) {
+        Product data = productService.findById(id);
+        return new JsonResult<>(success, data);
+    }
+}
+```
+
+2.在类中添加处理请求的getHotList()方法。
+
+```
+@RequestMapping("hot_list")
+public JsonResult<List<Product>> getHotList() {
+    List<Product> data = productService.findHotList();
+    return new JsonResult<List<Product>>(OK, data);
+}
+```

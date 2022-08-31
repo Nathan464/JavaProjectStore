@@ -25,4 +25,9 @@ public class AddressServiceTests {
     public void setDefault(){
         addressService.setDefault(4,7,"admin");
     }
+
+    @Test
+    public void delete(){
+        addressService.delete(4,7,"李瑞");
+    }
 }

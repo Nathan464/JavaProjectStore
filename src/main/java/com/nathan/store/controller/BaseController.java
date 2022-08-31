@@ -56,6 +56,9 @@ public class BaseController {
         } else if (e instanceof AccessDeniedException) {
             result.setState(8000);
             result.setMessage("非法访问数据");
+        }else if (e instanceof DeleteException) {
+            result.setState(8001);
+            result.setMessage("删除数据产生异常");
         }
         return result;
     }

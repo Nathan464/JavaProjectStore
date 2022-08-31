@@ -5,23 +5,17 @@ import com.nathan.store.mapper.AddressMapper;
 import com.nathan.store.service.IAddressService;
 import com.nathan.store.service.IDistrictService;
 import com.nathan.store.service.ex.*;
-import org.apache.tomcat.JarScanType;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.util.Date;
 import java.util.List;
-import java.util.Random;
 
 @Service
-public class IAddressImpl implements IAddressService {
-    private final AddressMapper addressMapper;
+public class IAddressImpl implements IAddressService{
     @Autowired(required = false)
-    public IAddressImpl(AddressMapper addressMapper) {
-        this.addressMapper = addressMapper;
-    }
-
+    private AddressMapper addressMapper;
     // 添加用户的收货地址的业务层
     @Autowired(required = false)
     private IDistrictService districtService;
@@ -94,6 +88,33 @@ public class IAddressImpl implements IAddressService {
         }
         // 设置默认收货地址
         Integer row = addressMapper.updateDefaultByAid(aid, username, new Date());
+        if (row != 1) {
+            throw new UpdateException("更新数据产生未知异常");
+        }
+    }
+
+    @Override
+    public void delete(Integer aid, Integer uid, String username) {
+        Address address = addressMapper.findByAid(aid);
+        if (address == null) {
+            throw new AddressNotFoundException("地址未找到");
+        }
+        if (!address.getUid().equals(uid)) {
+            throw new AccessDeniedException("非法访问数据");
+        }
+        Integer row = addressMapper.deleteByAid(aid);
+        if (row != 1) {
+            throw new DeleteException("删除过程产生未知异常");
+        }
+        Integer count = addressMapper.countByUid(uid);
+        if (count == 0) {
+            return;
+        }
+        if (address.getIsDefault() == 1) {
+            // 将该条数据的is_default设置为1
+            Address lastAddress = addressMapper.findLastModified(uid);
+            row = addressMapper.updateDefaultByAid(lastAddress.getAid(), username, new Date());
+        }
         if (row != 1) {
             throw new UpdateException("更新数据产生未知异常");
         }
