@@ -1544,11 +1544,17 @@ else if (e instanceof AddressCountLimitException) {
 持久层
 
 1. sql
+
    检测想设置的默认收货地址的数据是否存在
+
    ```select * from t_address aid=?```
+
    修改默认地址前，将所有收货地址设为非默认
+
    ```update t_address set is_default=0 where uid=?```
+
    将选中地址设置为默认
+
    ```update t_address set is_default=1, modified_user=?,modified_time=? where aid=?```
 2. 设计抽象方法
    在AddressMapper接口中定义方法
@@ -1806,6 +1812,7 @@ WHERE status = 1
 ORDER BY priority DESC
 LIMIT 0,4
 ```
+
 ```
 SELECT *
 FROM t_product
@@ -1991,5 +1998,314 @@ public class ProductController extends BaseController {
 public JsonResult<List<Product>> getHotList() {
     List<Product> data = productService.findHotList();
     return new JsonResult<List<Product>>(OK, data);
+}
+```
+
+### 流程（购物车）
+
+数据库创建、创建实体类
+
+```java
+public class Cart extends BaseEntity implements Serializable {
+    private Integer cid;
+    private Integer uid;
+    private Integer pid;
+    private Long price;
+    private Integer num;
+    // 加入getter、setter、toString、equals、hashcode
+}
+```
+
+持久层
+
+1. sql规划
+
+```sql
+// 插入数据
+insert into t_cart (aid除外的字段) values (字段值)
+// 商品已存在
+，更新商品数量
+update t_cart
+set num=?
+where cid = ?
+    // 插入或更新前需要查询相关数据
+select *
+from t_cart
+where cid = ?
+  and uid = ?
+    // 展示购物车
+select cid,
+       uid,
+       pid,
+       t_cart.price,
+       t_cart.num,
+       t_product.title,
+       t_product.image,
+       t_product.price AS realPrice
+from t_cart
+         left join _product on t_cart.pid = t_product.id
+where uid=#{uid}
+order by t_cart.created_time DESC
+```
+
+2. 设计接口
+
+```java
+package com.nathan.store.mapper;
+
+import com.nathan.store.entity.Cart;
+
+import java.util.Date;
+
+public interface CartMapper {
+    /**
+     * 插入购物车数据
+     * @param cart 购物车
+     * @return 受影响行数
+     */
+    Integer insert(Cart cart);
+
+    /**
+     * 更新商品数量
+     * @param cid 购物车id
+     * @param num 数量
+     * @param modifiedUser 修改者
+     * @param modifiedTime 修改时间
+     * @return 受影响行数
+     */
+    Integer updateNumByCid(Integer cid, Integer num, String modifiedUser, Date modifiedTime);
+
+    /**
+     * 根据用户id和商品id查询购物车中的数据
+     * @param uid 用户id
+     * @param pid 商品id
+     * @return Cart购物车数据
+     */
+    Cart findByUidAndPid(Integer uid, Integer pid);
+}
+
+```
+
+3. 接口映射文件CartMapper.xml
+
+```xml
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.nathan.store.mapper.CartMapper">
+    <resultMap id="CartEntityMap" type="com.nathan.store.entity.Cart">
+        <id column="cid" property="cid"/>
+        <result column="created_user" property="createdUser"/>
+        <result column="created_time" property="createdTime"/>
+        <result column="modified_user" property="modifiedUser"/>
+        <result column="modified_time" property="modifiedTime"/>
+    </resultMap>
+
+    <!-- 插入购物车数据：Integer insert(Cart cart) -->
+    <insert id="insert" useGeneratedKeys="true" keyProperty="cid">
+        INSERT INTO t_cart (uid, pid, price, num, created_user, created_time, modified_user, modified_time)
+        VALUES (#{uid}, #{pid}, #{price}, #{num}, #{createdUser}, #{createdTime}, #{modifiedUser}, #{modifiedTime})
+    </insert>
+
+    <!-- 修改购物车数据中商品的数量：
+         Integer updateNumByCid(
+            @Param("cid") Integer cid,
+            @Param("num") Integer num,
+            @Param("modifiedUser") String modifiedUser,
+            @Param("modifiedTime") Date modifiedTime) -->
+    <update id="updateNumByCid">
+        UPDATE
+        t_cart
+        SET num=#{num},
+        modified_user=#{modifiedUser},
+        modified_time=#{modifiedTime}
+        WHERE cid = #{cid}
+    </update>
+
+    <!-- 根据用户id和商品id查询购物车中的数据：
+         Cart findByUidAndPid(
+            @Param("uid") Integer uid,
+            @Param("pid") Integer pid) -->
+    <select id="findByUidAndPid" resultMap="CartEntityMap">
+        SELECT *
+        FROM t_cart
+        WHERE uid = #{uid}
+        AND pid = #{pid}
+    </select>
+
+    <!-- 查询某用户的购物车数据：List<CartVO> findVOByUid(Integer uid) -->
+    <select id="findVOByUid" resultType="com.nathan.store.vo.CartVO">
+        SELECT cid, uid, pid, t_cart.price, t_cart.num,
+        t_product.title, t_product.price AS realPrice,
+        t_product.image
+        FROM t_cart
+        LEFT JOIN t_product ON t_cart.pid = t_product.id
+        WHERE uid = #{uid}
+        ORDER BY t_cart.created_time DESC
+    </select>
+
+    <!-- 根据购物车数据id查询购物车数据详情：Cart findByCid(Integer cid) -->
+    <select id="findByCid" resultMap="CartEntityMap">
+        SELECT *
+        FROM t_cart
+        WHERE cid = #{cid}
+    </select>
+
+    <!-- 根据若干个购物车数据id查询详情的列表：List<CartVO> findVOByCids(Integer[] cids) -->
+    <select id="findVOByCids" resultType="com.nathan.store.vo.CartVO">
+        SELECT cid, uid, pid, t_cart.price, t_cart.num, t_product.title,
+        t_product.price AS realPrice, t_product.image
+        FROM
+        t_cart
+        LEFT JOIN t_product ON t_cart.pid = t_product.id
+        WHERE
+        cid IN (
+        <foreach collection="array" item="cid" separator=",">
+            #{cid}
+        </foreach>
+        )
+        ORDER BY
+        t_cart.created_time DESC
+    </select>
+</mapper>
+```
+
+业务层
+
+1. 异常：InsertException、UpdateException
+2. 创建ICartService
+
+```java
+package com.nathan.store.service;
+
+public interface ICartService {
+    /**
+     * 商品添加到购物车
+     * @param uid 用户id
+     * @param pid 商品id
+     * @param num 商品数量
+     * @param username 修改者
+     */
+    void addToCart(Integer uid, Integer pid, Integer num, String username);
+
+    List<CartVO> getVOByUid(Integer uid);
+}
+
+```
+
+3. 实现接口CartServiceImpl
+
+```java
+package com.nathan.store.service.impl;
+
+import com.nathan.store.entity.Cart;
+import com.nathan.store.mapper.CartMapper;
+import com.nathan.store.mapper.ProductMapper;
+import com.nathan.store.service.ICartService;
+import com.nathan.store.service.ex.InsertException;
+import com.nathan.store.service.ex.UpdateException;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import java.util.Date;
+
+@Service
+public class CartServiceImpl implements ICartService {
+    // 购物车业务层依赖于商品和购物车的持久层
+    @Autowired(required = false)
+    private CartMapper cartMapper;
+    @Autowired(required = false)
+    private IProductService productService;
+
+    @Override
+    public void addToCart(Integer uid, Integer pid, Integer num, String username) {
+        // 查询商品是否存在
+        Cart result = cartMapper.findByUidAndPid(uid, pid);
+        Date date = new Date();
+        if (result == null) {  // 不存在则插入数据
+            Cart cart = new Cart();
+            // 补全数据
+            cart.setUid(uid);
+            cart.setPid(pid);
+            cart.setNum(num);
+            cart.setPrice(productService.findById(pid).getPrice());
+            cart.setModifiedUser(username);
+            cart.setModifiedTime(date);
+            cart.setCreatedUser(username);
+            cart.setCreatedTime(date);
+            Integer row = cartMapper.insert(cart);
+            if (row != 1) {
+                throw new InsertException("插入数据时产生异常");
+            }
+        } else {  // 存在则更新数据
+            Integer amount = result.getNum() + num;
+            Integer row = cartMapper.updateNumByCid(result.getCid(), amount, username, date);
+            if (row != 1) {
+                throw new UpdateException("数据更新产生异常");
+            }
+        }
+    }
+
+    @Override
+    public List<CartVO> getVOByUid(Integer uid) {
+        return cartMapper.findVOByUid(uid);
+    }
+}
+```
+
+控制层
+
+1. 设计请求
+   /carts/add_to_cart&emsp;&emsp;GET&emsp;&emsp;pid,amount,session&emsp;&emsp;JsonResult-Void
+   /carts/&emsp;&emsp;GET&emsp;&emsp;session&emsp;&emsp;JsonResult-List-CartVO
+2. 处理请求:创建CartController
+
+```java
+package com.nathan.store.controller;
+
+import com.nathan.store.service.ICartService;
+import com.nathan.store.util.JsonResult;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import javax.servlet.http.HttpSession;
+
+@RestController
+@RequestMapping("carts")
+public class CartController extends BaseController {
+    @Autowired(required = false)
+    private ICartService cartService;
+
+    @RequestMapping("add_to_cart")
+    public JsonResult<Void> addToCart(Integer pid, Integer amount,
+                                      HttpSession session) {
+        cartService.addToCart(getUidFromSession(session), pid, amount,
+                getUsernameFromSession(session));
+        return new JsonResult<>(success);
+    }
+
+    @RequestMapping({"", "/"})
+    public JsonResult<List<CartVO>> getVOByUid(HttpSession session) {
+        List<CartVO> data = cartService.getVOByUid(getUidFromSession(session));
+        return new JsonResult<>(success, data);
+    }
+}
+```
+
+ValueObject: VO，值对象，查询结果数据为多张表中的内容，不能使用pojo接收，可构建VO对象存储查询结果
+
+```java
+public class CartVO implements Serializable {
+    private Integer cid;
+    private Integer uid;
+    private Integer pid;
+    private Long price;
+    private Integer num;
+    private String title;
+    private Long realPrice;
+    private String image;
+    // 加入getter、setter、toString、equals、hashcode
 }
 ```
