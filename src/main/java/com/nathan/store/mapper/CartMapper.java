@@ -9,6 +9,7 @@ import java.util.List;
 public interface CartMapper {
     /**
      * 插入购物车数据
+     *
      * @param cart 购物车
      * @return 受影响行数
      */
@@ -16,8 +17,9 @@ public interface CartMapper {
 
     /**
      * 更新商品数量
-     * @param cid 购物车id
-     * @param num 数量
+     *
+     * @param cid          购物车id
+     * @param num          数量
      * @param modifiedUser 修改者
      * @param modifiedTime 修改时间
      * @return 受影响行数
@@ -26,6 +28,7 @@ public interface CartMapper {
 
     /**
      * 根据用户id和商品id查询购物车中的数据
+     *
      * @param uid 用户id
      * @param pid 商品id
      * @return Cart购物车数据
@@ -33,4 +36,8 @@ public interface CartMapper {
     Cart findByUidAndPid(Integer uid, Integer pid);
 
     List<CartVO> findVOByUid(Integer uid);
+
+    Cart findByCid(Integer cid);
+
+    List<CartVO> findVOByCids(Integer[] cids);
 }

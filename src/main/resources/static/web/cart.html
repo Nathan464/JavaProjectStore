@@ -30,7 +30,7 @@
 			<div class="row">
 				<div class="col-md-3">
 					<a href="index.html">
-						<img src="../images/index/stumalllogo.png" />
+						<img src="../images/index/stumalllogo.png" alt=""/>
 					</a>
 				</div>
 				<!--快捷选项-->
@@ -285,11 +285,11 @@
 										+ '<td>'
 										+ 	'<input name="cids" value="#{cid}" type="checkbox" class="ckitem" />'
 										+ '</td>'
-										+ '<td><img src="..#{image}collect.png" class="img-responsive" /></td>'
+										+ '<td><img src="..#{image}collect.png" class="img-responsive" alt=""/></td>'
 										+ '<td>#{title}#{msg}</td>'
 										+ '<td>¥<span id="price-#{cid}">#{realPrice}</span></td>'
 										+ '<td>'
-										+ 	'<input type="button" value="-" class="num-btn" onclick="reduceNum(1)" />'
+										+ 	'<input type="button" value="-" class="num-btn" onclick="subNum(#{cid})" />'
 										+ 	'<input id="num-#{cid}" type="text" size="2" readonly="readonly" class="num-text" value="#{num}">'
 										+ 	'<input class="num-btn" type="button" value="+" onclick="addNum(#{cid})" />'
 										+ '</td>'
@@ -338,7 +338,29 @@
 					}
 				});
 			}
-
+			function subNum(cid) {
+				$.ajax({
+					url: "/carts/" + cid + "/num/sub",
+					type: "POST",
+					dataType: "JSON",
+					success: function (json) {
+						if (json.state == 200) {
+							// showCartList();
+							$("#num-" - cid).val(json.data);
+							let price = $("#price-" - cid).html();
+							let totalPrice = price * json.data;
+							$("#total-price-" - cid).html(totalPrice);
+							location.reload();
+						} else {
+							alert("减少商品数量失败！" + json.message);
+						}
+					},
+					error: function (xhr) {
+						alert("您的登录信息已经过期，请重新登录！HTTP响应码：" + xhr.status);
+						location.href = "login.html";
+					}
+				});
+			}
 			/*
 			$(function() {
 				//返回链接

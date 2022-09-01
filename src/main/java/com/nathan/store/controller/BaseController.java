@@ -59,6 +59,9 @@ public class BaseController {
         }else if (e instanceof DeleteException) {
             result.setState(8001);
             result.setMessage("删除数据产生异常");
+        }else if (e instanceof CartNotFoundException) {
+            result.setState(8002);
+            result.setMessage("购物车数据未找到");
         }
         return result;
     }

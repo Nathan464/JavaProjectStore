@@ -2023,8 +2023,7 @@ public class Cart extends BaseEntity implements Serializable {
 ```sql
 // 插入数据
 insert into t_cart (aid除外的字段) values (字段值)
-// 商品已存在
-，更新商品数量
+// 商品已存在则更新商品数量
 update t_cart
 set num=?
 where cid = ?
@@ -2046,6 +2045,23 @@ from t_cart
          left join _product on t_cart.pid = t_product.id
 where uid=#{uid}
 order by t_cart.created_time DESC
+    // 显示勾选的购物车数据
+SELECT cid,
+       uid,
+       pid,
+       t_cart.price,
+       t_cart.num,
+       t_product.title,
+       t_product.price AS realPrice,
+       t_product.image
+FROM t_cart
+         LEFT JOIN t_product ON t_cart.pid = t_product.id
+WHERE cid IN (
+    <foreach collection="array" item="cid" separator=",">
+    #{cid}
+    </foreach>
+    )
+ORDER BY t_cart.created_time DESC
 ```
 
 2. 设计接口
@@ -2082,8 +2098,11 @@ public interface CartMapper {
      * @return Cart购物车数据
      */
     Cart findByUidAndPid(Integer uid, Integer pid);
-}
 
+    Cart findByCid(Integer cid);
+
+    List<CartVO> findVOByCids(Integer[] cids);
+}
 ```
 
 3. 接口映射文件CartMapper.xml
@@ -2190,6 +2209,12 @@ public interface ICartService {
     void addToCart(Integer uid, Integer pid, Integer num, String username);
 
     List<CartVO> getVOByUid(Integer uid);
+
+    Integer addNum(Integer cid, Integer uid, String username);
+
+    Integer subNum(Integer cid, Integer uid, String username);
+
+    List<CartVO> getVOByCids(Integer uid, Integer[] cids);
 }
 
 ```
@@ -2251,14 +2276,60 @@ public class CartServiceImpl implements ICartService {
     public List<CartVO> getVOByUid(Integer uid) {
         return cartMapper.findVOByUid(uid);
     }
+
+    @Override
+    public Integer addNum(Integer cid, Integer uid, String username) {
+        Cart result = cartMapper.findByCid(cid);
+        if (result == null) {
+            throw new CartNotFoundException("尝试访问的购物车数据不存在");
+        }
+        if (!result.getUid().equals(uid)) {
+            throw new AccessDeniedException("非法访问数据");
+        }
+        Integer num = result.getNum() + 1;
+        Date date = new Date();
+        Integer row = cartMapper.updateNumByCid(cid, num, username, date);
+        if (row != 1) {
+            throw new UpdateException("更新数量时产生异常");
+        }
+        return num;
+    }
+
+    @Override
+    public Integer subNum(Integer cid, Integer uid, String username) {
+        Cart result = cartMapper.findByCid(cid);
+        if (result == null) {
+            throw new CartNotFoundException("尝试访问的购物车数据不存在");
+        }
+        if (!result.getUid().equals(uid)) {
+            throw new AccessDeniedException("非法访问数据");
+        }
+        Integer num = result.getNum() - 1;
+        Date date = new Date();
+        Integer row = cartMapper.updateNumByCid(cid, num, username, date);
+        if (row != 1) {
+            throw new UpdateException("更新数量时产生异常");
+        }
+        return num;
+    }
+
+    @Override
+    public List<CartVO> getVOByCids(Integer uid, Integer[] cids) {
+        List<CartVO> list = cartMapper.findVOByCids(cids);
+        list.removeIf(cart -> !cart.getUid().equals(uid));
+        return list;
+    }
 }
 ```
 
 控制层
 
 1. 设计请求
-   /carts/add_to_cart&emsp;&emsp;GET&emsp;&emsp;pid,amount,session&emsp;&emsp;JsonResult-Void
-   /carts/&emsp;&emsp;GET&emsp;&emsp;session&emsp;&emsp;JsonResult-List-CartVO
+    * /carts/add_to_cart&emsp;&emsp;GET&emsp;&emsp;pid, amount, session&emsp;&emsp;JsonResult-Void
+    * /carts/&emsp;&emsp;GET&emsp;&emsp;session&emsp;&emsp;JsonResult-List-CartVO
+    * /carts/{cid}/num/add&emsp;&emsp;cid, session&emsp;&emsp;JsonResult>Integer
+    * /carts/{cid}/num/sub&emsp;&emsp;cid, session&emsp;&emsp;JsonResult>Integer
+    * /carts/list&emsp;&emsp;cids, session&emsp;&emsp;JsonResult>List>CartVO
 2. 处理请求:创建CartController
 
 ```java
@@ -2291,6 +2362,26 @@ public class CartController extends BaseController {
         List<CartVO> data = cartService.getVOByUid(getUidFromSession(session));
         return new JsonResult<>(success, data);
     }
+
+    @RequestMapping("{cid}/num/add")
+    public JsonResult<Integer> addNum(@PathVariable("cid") Integer cid, HttpSession session) {
+        Integer data = cartService.addNum(cid, getUidFromSession(session),
+                getUsernameFromSession(session));
+        return new JsonResult<>(success, data);
+    }
+
+    @RequestMapping("{cid}/num/sub")
+    public JsonResult<Integer> subNum(@PathVariable("cid") Integer cid, HttpSession session) {
+        Integer data = cartService.subNum(cid, getUidFromSession(session),
+                getUsernameFromSession(session));
+        return new JsonResult<>(success, data);
+    }
+
+    @GetMapping("list")
+    public JsonResult<List<CartVO>> getVOByCids(HttpSession session, Integer[] cids) {
+        List<CartVO> data = cartService.getVOByCids(getUidFromSession(session), cids);
+        return new JsonResult<>(success, data);
+    }
 }
 ```
 
@@ -2307,5 +2398,304 @@ public class CartVO implements Serializable {
     private Long realPrice;
     private String image;
     // 加入getter、setter、toString、equals、hashcode
+}
+```
+
+### 流程（订单）
+
+持久层
+
+```java
+// 订单实体类
+public class Order extends BaseEntity implements Serializable {
+    private Integer oid;
+    private Integer uid;
+    private String recvName;
+    private String recvPhone;
+    private String recvProvince;
+    private String recvCity;
+    private String recvArea;
+    private String recvAddress;
+    private Long totalPrice;
+    private Integer status;
+    private Date orderTime;
+    private Date payTime;
+    // // 加入getter、setter、toString、equals、hashcode
+}
+```
+
+```java
+// 订单商品实体类
+public class OrderItem extends BaseEntity implements Serializable {
+    private Integer id;
+    private Integer oid;
+    private Integer pid;
+    private String title;
+    private String image;
+    private Long price;
+    private Integer num;
+    // 加入getter、setter、toString、equals、hashcode
+}
+```
+
+1. sql
+
+```sql
+// 订单
+INSERT INTO t_order (uid, recv_name, recv_phone, recv_province,
+                     recv_city, recv_area, recv_address,
+                     total_price, status, order_time, pay_time,
+                     created_user, created_time, modified_user, modified_time)
+VALUES (
+#{uid},
+#{recvName},
+#{recvPhone},
+#{recvProvince},
+#{recvCity},
+#{recvArea},
+#{recvAddress},
+#{totalPrice},
+#{status},
+#{orderTime},
+#{payTime},
+#{createdUser},
+#{createdTime},
+#{modifiedUser},
+#{modifiedTime}
+)
+```
+
+```sql
+// 订单商品
+INSERT INTO t_order_item (oid, pid, title, image, price, num, created_user,
+                          created_time, modified_user, modified_time)
+VALUES (
+#{oid},
+#{pid},
+#{title},
+#{image},
+#{price},
+#{num},
+#{createdUser},
+#{createdTime},
+#{modifiedUser},
+#{modifiedTime}
+)
+```
+
+2. 创建OrderMapper接口
+
+```java
+public interface OrderMapper {
+    /**
+     * 插入订单数据
+     *
+     * @param order 订单
+     * @return 受影响行数
+     */
+    Integer insertOrder(Order order);
+
+    /**
+     * 插入订单商品数据
+     *
+     * @param orderItem 订单商品
+     * @return 受影响的行数
+     */
+    Integer insertOrderItem(OrderItem orderItem);
+}
+```
+
+3. OrderMapper.xml映射
+
+```xml
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.nathan.store.mapper.OrderMapper">
+    <resultMap id="AddressEntityMap" type="com.nathan.store.entity.Order">
+        <id column="oid" property="oid"/>
+        <result column="recv_name" property="recvName"/>
+        <result column="recv_phone" property="recvPhone"/>
+        <result column="recv_provice" property="recvProvice"/>
+        <result column="recv_city" property="recvCity"/>
+        <result column="recv_area" property="recvArea"/>
+        <result column="recv_address" property="recvAddress"/>
+        <result column="total_price" property="totalPrice"/>
+        <result column="order_time" property="orderTime"/>
+        <result column="pay_time" property="payTime"/>
+    </resultMap>
+
+    <!-- 插入订单数据：Integer insertOrder(Order order) -->
+    <insert id="insert" useGeneratedKeys="true" keyProperty="oid">
+        INSERT INTO t_order (uid, recv_name, recv_phone, recv_province,
+        recv_city, recv_area, recv_address,
+        total_price, status, order_time, pay_time,
+        created_user, created_time, modified_user, modified_time)
+        VALUES (#{uid}, #{recvName}, #{recvPhone}, #{recvProvince}, #{recvCity}, #{recvArea},
+        #{recvAddress}, #{totalPrice}, #{status}, #{orderTime}, #{payTime}, #{createdUser},
+        #{createdTime}, #{modifiedUser}, #{modifiedTime})
+    </insert>
+
+    <!-- 插入订单商品数据：Integer insertOrderItem(OrderItem orderItem) -->
+    <insert id="insertOrderItem" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO t_order_item (oid, pid, title, image, price, num, created_user,
+        created_time, modified_user, modified_time)
+        VALUES (#{oid}, #{pid}, #{title}, #{image}, #{price}, #{num}, #{createdUser},
+        #{createdTime}, #{modifiedUser}, #{modifiedTime})
+    </insert>
+</mapper>
+```
+
+业务层
+
+1. 在IAddressService接口中定义根据收货地址的id获取收货地址并实现接口
+   ```Address getByAid(Integer aid,Integer uid);```
+
+```
+    @Override
+    public Address getByAid(Integer aid, Integer uid) {
+        Address address = addressMapper.findByAid(aid);
+        if (address == null) {
+            throw new AddressNotFoundException("地址未找到");
+        }
+        if (!address.getUid().equals(uid)) {
+            throw new AccessDeniedException("非法访问");
+        }
+        address.setProvinceCode(null);
+        address.setCityCode(null);
+        address.setAreaCode(null);
+        address.setCreatedUser(null);
+        address.setCreatedTime(null);
+        address.setModifiedUser(null);
+        address.setModifiedTime(null);
+        return address;
+    }
+```
+
+2. IOrderService和OrderServiceImpl
+
+```java
+public interface IOrderService {
+    /**
+     * 创建订单
+     * @param aid 收货地址的id
+     * @param cids 即将购买的商品数据在购物车表中的id
+     * @param uid 当前登录的用户的id
+     * @param username 当前登录的用户名
+     * @return 成功创建的订单数据
+     */
+    Order create(Integer aid, Integer[] cids, Integer uid, String username);
+}
+```
+
+```java
+package com.nathan.store.service.impl;
+
+import com.nathan.store.entity.Address;
+import com.nathan.store.entity.Order;
+import com.nathan.store.entity.OrderItem;
+import com.nathan.store.mapper.OrderMapper;
+import com.nathan.store.service.IAddressService;
+import com.nathan.store.service.ICartService;
+import com.nathan.store.service.IOrderService;
+import com.nathan.store.service.ex.InsertException;
+import com.nathan.store.vo.CartVO;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import java.util.Date;
+import java.util.List;
+
+@Service
+public class OrderServiceImpl implements IOrderService {
+
+    @Autowired(required = false)
+    private OrderMapper orderMapper;
+    @Autowired(required = false)
+    private IAddressService addressService;
+    @Autowired(required = false)
+    private ICartService cartService;
+
+    @Override
+    public Order create(Integer aid, Integer[] cids, Integer uid, String username) {
+        List<CartVO> list = cartService.getVOByCids(uid, cids);
+        Long totalPrice = 0L;
+
+        for (CartVO cartVO : list) {
+            totalPrice = cartVO.getPrice() * cartVO.getNum();
+        }
+        Address address = addressService.getByAid(aid, uid);
+        Order order = new Order();
+        // 封装数据
+        order.setUid(uid);
+        order.setRecvName(address.getName());
+        order.setRecvPhone(address.getPhone());
+        order.setRecvProvince(address.getProvinceName());
+        order.setRecvCity(address.getCityName());
+        order.setRecvArea(address.getAreaName());
+        order.setRecvAddress(address.getAddress());
+        order.setStatus(0);
+        order.setTotalPrice(totalPrice);
+        order.setCreatedUser(username);
+        order.setCreatedTime(new Date());
+        order.setModifiedUser(username);
+        order.setModifiedTime(new Date());
+        order.setOrderTime(new Date());
+        Integer row = orderMapper.insertOrder(order);
+        if (row != 1) {
+            throw new InsertException("插入数据产生异常");
+        }
+        // 订单详细项的数据
+        for (CartVO cartVO : list) {
+            OrderItem orderItem = new OrderItem();
+            orderItem.setOid(order.getOid());
+            orderItem.setPid(cartVO.getPid());
+            orderItem.setTitle(cartVO.getTitle());
+            orderItem.setPrice(cartVO.getPrice());
+            orderItem.setNum(cartVO.getNum());
+            orderItem.setCreatedUser(username);
+            orderItem.setCreatedTime(new Date());
+            orderItem.setModifiedUser(username);
+            orderItem.setModifiedTime(new Date());
+            Integer count = orderMapper.insertOrderItem(orderItem);
+            if (count != 1) {
+                throw new InsertException("插入数据产生异常");
+            }
+
+        }
+        return order;
+    }
+}
+```
+
+控制层
+
+1. 设计请求
+
+```
+/orders/create
+aid, HttpSession, cids
+POST
+JsonResult<Order>
+```
+
+2. 处理请求：OrderController类
+
+```java
+
+@RestController
+@RequestMapping("orders")
+public class OrderController extends BaseController {
+    @Autowired(required = false)
+    private IOrderService orderService;
+
+    @RequestMapping("create")
+    public JsonResult<Order> create(Integer aid, Integer[] cids, HttpSession session) {
+        Integer uid = getUidFromSession(session);
+        String username = getUsernameFromSession(session);
+        Order data = orderService.create(aid, cids, uid, username);
+        return new JsonResult<>(success, data);
+    }
 }
 ```

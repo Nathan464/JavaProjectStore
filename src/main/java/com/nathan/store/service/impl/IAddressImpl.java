@@ -13,7 +13,7 @@ import java.util.Date;
 import java.util.List;
 
 @Service
-public class IAddressImpl implements IAddressService{
+public class IAddressImpl implements IAddressService {
     @Autowired(required = false)
     private AddressMapper addressMapper;
     // 添加用户的收货地址的业务层
@@ -118,5 +118,24 @@ public class IAddressImpl implements IAddressService{
         if (row != 1) {
             throw new UpdateException("更新数据产生未知异常");
         }
+    }
+
+    @Override
+    public Address getByAid(Integer aid, Integer uid) {
+        Address address = addressMapper.findByAid(aid);
+        if (address == null) {
+            throw new AddressNotFoundException("地址未找到");
+        }
+        if (!address.getUid().equals(uid)) {
+            throw new AccessDeniedException("非法访问");
+        }
+        address.setProvinceCode(null);
+        address.setCityCode(null);
+        address.setAreaCode(null);
+        address.setCreatedUser(null);
+        address.setCreatedTime(null);
+        address.setModifiedUser(null);
+        address.setModifiedTime(null);
+        return address;
     }
 }

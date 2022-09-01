@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html lang="">
 
 	<head>
 		<meta charset="UTF-8">
@@ -31,7 +31,7 @@
 			<div class="row">
 				<div class="col-md-3">
 					<a href="index.html">
-						<img src="../images/index/stumalllogo.png" />
+						<img src="../images/index/stumalllogo.png" alt=""/>
 					</a>
 				</div>
 				<!--快捷选项-->
@@ -82,7 +82,7 @@
 			<div class="col-md-6">
 				<form action="search.html" class="form-inline pull-right" role="form">
 					<div class="form-group">
-						<input type="text" class="form-control" id="search" name="search" placeholder="请输入商品名称进行搜索">
+						<label for="search"></label><input type="text" class="form-control" id="search" name="search" placeholder="请输入商品名称进行搜索">
 					</div>
 					<button type="submit" class="btn btn-default btn-sm"><span class="fa fa-search"></span></button>
 				</form>
@@ -112,10 +112,10 @@
 				<div class="col-md-12">
 					<form id="form-create-order" role="form">
 						<div class="form-group">
-							<label for="name">
+							<label>
 								<p>选择收货地址：</p>
 							</label>
-							<select name="aid" id="address-list" class="form-control">
+							<label for="address-list"></label><select name="aid" id="address-list" class="form-control">
 								<option>八戒&nbsp;&nbsp;&nbsp;家&nbsp;&nbsp;&nbsp;北京市房山区高老庄3排6号&nbsp;&nbsp;&nbsp;1380***1234</option>
 								<option>八戒&nbsp;&nbsp;&nbsp;公司&nbsp;&nbsp;&nbsp;北京市海淀区中关村中路1号1001室&nbsp;&nbsp;&nbsp;1380***1234</option>
 								<option>八戒&nbsp;&nbsp;&nbsp;宿舍&nbsp;&nbsp;&nbsp;北京市海淀区永丰镇30号&nbsp;&nbsp;&nbsp;1380***1234</option>
@@ -126,7 +126,7 @@
 								<p class="panel-title">订单商品信息：</p>
 							</div>
 							<div class="panel-body">
-								<table class="cart-table" width="100%">
+								<table class="cart-table">
 									<thead>
 										<tr>
 											<th width="15%"></th>
@@ -138,7 +138,7 @@
 									</thead>
 									<tbody id="cart-list" class="cart-body">
 										<tr>
-											<td><img src="../images/portal/12DELLXPS13-silvery/collect.png" class="img-responsive" /></td>
+											<td><img src="../images/portal/12DELLXPS13-silvery/collect.png" alt="" class="img-responsive" /></td>
 											<td>联想(Lenovo)小新Air13 Pro 13.3英寸14.8mm超轻薄笔记本电脑</td>
 											<td>¥<span>5298</span></td>
 											<td>1</td>
@@ -234,11 +234,11 @@
 				<div class="col-md-4">
 					<div class="col-md-5">
 						<p>电脑商城客户端</p>
-						<img src="../images/index/ios.png" class="lf">
+						<img src="../images/index/ios.png" class="lf" alt="">
 						<img src="../images/index/android.png" alt="" class="lf" />
 					</div>
 					<div class="col-md-6">
-						<img src="../images/index/erweima.png">
+						<img src="../images/index/erweima.png" alt="">
 					</div>
 				</div>
 			</div>
@@ -271,7 +271,7 @@
 						for (let i = 0; i < list.length; i++) {
 							console.log(list[i].title);
 							let tr = '<tr>'
-									+ '<td><img src="..#{image}collect.png" class="img-responsive" /></td>'
+									+ '<td><img src="..#{image}collect.png" class="img-responsive" alt="" /></td>'
 									+ '<td><input type="hidden" name="cids" value="#{cid}" />#{title}</td>'
 									+ '<td>¥<span>#{realPrice}</span></td>'
 									+ '<td>#{num}</td>'
@@ -304,7 +304,6 @@
 					dataType: "JSON",
 					success: function(json) {
 						let list = json.data;
-						console.log("count=" + list.length);
 						for (let i = 0; i < list.length; i++) {
 							console.log(list[i].name);
 							let opt = '<option value="#{aid}">#{name} | #{tag} | #{province}#{city}#{area}#{address} | #{phone}</option>';
@@ -325,14 +324,17 @@
 			}
 
 			$("#btn-create-order").click(function() {
+				let aid = $("#address-list").val();
+				let cids = location.search.substring(1);
 				$.ajax({
 					url: "/orders/create",
-					data: $("#form-create-order").serialize(),
-					type: "POST",
+					data: "aid="+aid+"&"+cids,
+					type: "GET",
 					dataType: "JSON",
 					success: function(json) {
 						if (json.state == 200) {
 							alert("创建订单成功！");
+							location.href = "payment.html";
 							console.log(json.data);
 						} else {
 							alert("创建订单失败！" + json.message);
