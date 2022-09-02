@@ -23,7 +23,7 @@ public class AddressServiceTests {
 
     @Test
     public void setDefault(){
-        addressService.setDefault(4,7,"admin");
+        addressService.setDefault(5,7,"admin");
     }
 
     @Test
