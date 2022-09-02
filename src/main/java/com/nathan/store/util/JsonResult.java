@@ -2,6 +2,7 @@ package com.nathan.store.util;
 
 import java.io.Serializable;
 
+// 自定义返回值类型
 public class JsonResult<E> implements Serializable {
     //状态码
     private Integer state;

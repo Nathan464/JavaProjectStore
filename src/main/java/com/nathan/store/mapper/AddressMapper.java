@@ -47,8 +47,7 @@ public interface AddressMapper {
     Integer updateNonDefaultByUid(Integer uid);
 
     /**
-     *
-     * @param aid 地址id
+     * @param aid          地址id
      * @param modifiedUser 更改者
      * @param modifiedTime 更改时间
      * @return 受影响行数
@@ -57,6 +56,7 @@ public interface AddressMapper {
 
     /**
      * 根据aid删除地址
+     *
      * @param aid id
      * @return 受影响行数
      */
@@ -64,6 +64,7 @@ public interface AddressMapper {
 
     /**
      * 根据uid查询用户最新的地址数据
+     *
      * @param uid id
      * @return 最新地址数据
      */

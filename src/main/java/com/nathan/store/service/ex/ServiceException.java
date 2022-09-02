@@ -1,5 +1,6 @@
 package com.nathan.store.service.ex;
 
+// 业务层异常基类
 public class ServiceException extends RuntimeException{
     public ServiceException() {
         super();

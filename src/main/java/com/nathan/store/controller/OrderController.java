@@ -11,15 +11,19 @@ import javax.servlet.http.HttpSession;
 
 @RestController
 @RequestMapping("orders")
-public class OrderController extends BaseController{
-    @Autowired(required = false)
-    private IOrderService orderService;
+public class OrderController extends BaseController {
+    private final IOrderService orderService;
+
+    @Autowired
+    public OrderController(IOrderService orderService) {
+        this.orderService = orderService;
+    }
 
     @RequestMapping("create")
-    public JsonResult<Order> create(Integer aid, Integer[] cids, HttpSession session){
+    public JsonResult<Order> create(Integer aid, Integer[] cids, HttpSession session) {
         Integer uid = getUidFromSession(session);
         String username = getUsernameFromSession(session);
-        Order data = orderService.create(aid,cids,uid,username);
-        return new JsonResult<>(success,data);
+        Order data = orderService.create(aid, cids, uid, username);
+        return new JsonResult<>(success, data);
     }
 }

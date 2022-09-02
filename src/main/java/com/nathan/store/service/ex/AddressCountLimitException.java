@@ -1,5 +1,6 @@
 package com.nathan.store.service.ex;
 
+// 用户收货地址超出上限异常
 public class AddressCountLimitException extends ServiceException{
     public AddressCountLimitException() {
         super();

@@ -12,8 +12,13 @@ import java.util.List;
 @RestController
 @RequestMapping("districts")
 public class DistrictController extends BaseController {
-    @Autowired(required = false)
-    private IDistrictService districtService;
+
+    private final IDistrictService districtService;
+
+    @Autowired
+    public DistrictController(IDistrictService districtService) {
+        this.districtService = districtService;
+    }
 
     // districts开头的请求拦截到getByParent方法中
     @RequestMapping({"/", ""}) // districts后续跟/或空格都能拦截到

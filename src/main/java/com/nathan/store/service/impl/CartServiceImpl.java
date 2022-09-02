@@ -2,7 +2,6 @@ package com.nathan.store.service.impl;
 
 import com.nathan.store.entity.Cart;
 import com.nathan.store.mapper.CartMapper;
-import com.nathan.store.mapper.ProductMapper;
 import com.nathan.store.service.ICartService;
 import com.nathan.store.service.IProductService;
 import com.nathan.store.service.ex.AccessDeniedException;
@@ -14,16 +13,20 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.Date;
-import java.util.Iterator;
 import java.util.List;
 
 @Service
 public class CartServiceImpl implements ICartService {
     // 购物车业务层依赖于商品和购物车的持久层
+    private final CartMapper cartMapper;
+
+    private final IProductService productService;
+
     @Autowired(required = false)
-    private CartMapper cartMapper;
-    @Autowired(required = false)
-    private IProductService productService;
+    public CartServiceImpl(CartMapper cartMapper, IProductService productService) {
+        this.cartMapper = cartMapper;
+        this.productService = productService;
+    }
 
     @Override
     public void addToCart(Integer uid, Integer pid, Integer num, String username) {

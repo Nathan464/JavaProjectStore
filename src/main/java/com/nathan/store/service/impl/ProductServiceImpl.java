@@ -11,8 +11,13 @@ import java.util.List;
 
 @Service
 public class ProductServiceImpl implements IProductService {
+    private final ProductMapper productMapper;
+
     @Autowired(required = false)
-    private ProductMapper productMapper;
+    public ProductServiceImpl(ProductMapper productMapper) {
+        this.productMapper = productMapper;
+    }
+
     @Override
     public List<Product> findHotList() {
         List<Product> list = productMapper.findHotList();

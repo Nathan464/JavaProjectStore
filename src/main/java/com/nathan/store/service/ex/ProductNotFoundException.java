@@ -1,5 +1,6 @@
 package com.nathan.store.service.ex;
 
+// 商品未找到异常
 public class ProductNotFoundException extends ServiceException{
     public ProductNotFoundException() {
         super();

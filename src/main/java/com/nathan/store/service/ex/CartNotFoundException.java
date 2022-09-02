@@ -1,5 +1,6 @@
 package com.nathan.store.service.ex;
 
+// 购物车未找到异常
 public class CartNotFoundException extends ServiceException{
     public CartNotFoundException() {
         super();

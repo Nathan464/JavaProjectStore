@@ -35,9 +35,27 @@ public interface CartMapper {
      */
     Cart findByUidAndPid(Integer uid, Integer pid);
 
+    /**
+     * 根据uid查询购物车
+     *
+     * @param uid 用户id
+     * @return 购物车值对象的集合
+     */
     List<CartVO> findVOByUid(Integer uid);
 
+    /**
+     * 根据cid查询购物车
+     *
+     * @param cid 购物车id
+     * @return 购物车数据
+     */
     Cart findByCid(Integer cid);
 
+    /**
+     * 根据多个购物车id查询购物车数据
+     *
+     * @param cids 多个购物车id
+     * @return 购物车值对象的集合
+     */
     List<CartVO> findVOByCids(Integer[] cids);
 }

@@ -11,8 +11,13 @@ import java.util.List;
 @Service
 public class DistrictServiceImpl implements IDistrictService {
 
+
+    private final DistrictMapper districtMapper;
+
     @Autowired(required = false)
-    private DistrictMapper districtMapper;
+    public DistrictServiceImpl(DistrictMapper districtMapper) {
+        this.districtMapper = districtMapper;
+    }
 
     @Override
     public List<District> getParent(String parent) {

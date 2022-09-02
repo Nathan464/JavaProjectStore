@@ -1,5 +1,6 @@
 package com.nathan.store.service.ex;
 
+//用户名未找到异常
 public class UsernameNotFoundException extends ServiceException{
     public UsernameNotFoundException() {
         super();

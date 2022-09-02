@@ -1,5 +1,6 @@
 package com.nathan.store.service.ex;
 
+// 密码不匹配异常
 public class PasswordNotMatchException extends ServiceException{
     public PasswordNotMatchException() {
         super();

@@ -1,5 +1,6 @@
 package com.nathan.store.service.ex;
 
+// 地址未找到异常
 public class AddressNotFoundException extends ServiceException {
     public AddressNotFoundException() {
         super();

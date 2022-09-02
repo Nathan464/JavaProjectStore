@@ -17,18 +17,23 @@ import java.util.List;
 
 @Service
 public class OrderServiceImpl implements IOrderService {
+    private final OrderMapper orderMapper;
+    private final IAddressService addressService;
+    private final ICartService cartService;
 
     @Autowired(required = false)
-    private OrderMapper orderMapper;
-    @Autowired(required = false)
-    private IAddressService addressService;
-    @Autowired(required = false)
-    private ICartService cartService;
+    public OrderServiceImpl(OrderMapper orderMapper,
+                            IAddressService addressService,
+                            ICartService cartService) {
+        this.orderMapper = orderMapper;
+        this.addressService = addressService;
+        this.cartService = cartService;
+    }
 
     @Override
     public Order create(Integer aid, Integer[] cids, Integer uid, String username) {
         List<CartVO> list = cartService.getVOByCids(uid, cids);
-        Long totalPrice = 0L;
+        long totalPrice = 0L;
 
         for (CartVO cartVO:list){
             totalPrice = cartVO.getPrice()*cartVO.getNum();

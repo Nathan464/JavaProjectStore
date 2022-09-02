@@ -21,8 +21,13 @@ import java.util.UUID;
 @RequestMapping("users")
 @RestController // @Controller + @ResponseBody表示此方法响应结果以json格式进行数据响应
 public class UserController extends BaseController {
+
+    private final IUserService userService;
+
     @Autowired
-    private IUserService userService;
+    public UserController(IUserService userService) {
+        this.userService = userService;
+    }
 
     @RequestMapping("reg")
     public JsonResult<Void> reg(User user) {
@@ -95,7 +100,10 @@ public class UserController extends BaseController {
         String uploadParent = session.getServletContext().getRealPath("upload");
         File directory = new File(uploadParent);
         if (!directory.exists()) { //检测目录是否存在
-            directory.mkdirs(); //创建目录
+            boolean createdDir = directory.mkdirs(); //创建目录
+            if (!createdDir) {
+                throw new RuntimeException("创建目录时产生错误");
+            }
         }
         // 获取文件名，利用UUID随机生成字符串作为文件名，保留文件后缀
         String filename = file.getOriginalFilename(); // 获取原始文件名

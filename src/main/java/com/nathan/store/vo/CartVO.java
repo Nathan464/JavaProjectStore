@@ -2,6 +2,8 @@ package com.nathan.store.vo;
 
 import java.io.Serializable;
 
+// ValueObject: VO，值对象，查询结果数据为多张表中的内容，
+// 不能使用pojo接收，可构建VO对象存储查询结果
 public class CartVO implements Serializable {
     private Integer cid;
     private Integer uid;

@@ -14,8 +14,13 @@ import java.util.List;
 @RestController
 @RequestMapping("addresses")
 public class AddressController extends BaseController {
-    @Autowired(required = false)
-    private IAddressService addressService;
+
+    private final IAddressService addressService;
+
+    @Autowired
+    public AddressController(IAddressService addressService) {
+        this.addressService = addressService;
+    }
 
     @RequestMapping("add_new_address")
     public JsonResult<Void> addNewAddress(HttpSession session, Address address) {

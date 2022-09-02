@@ -15,8 +15,13 @@ import java.util.List;
 @RestController
 @RequestMapping("carts")
 public class CartController extends BaseController {
-    @Autowired(required = false)
-    private ICartService cartService;
+
+    private final ICartService cartService;
+
+    @Autowired
+    public CartController(ICartService cartService) {
+        this.cartService = cartService;
+    }
 
     @RequestMapping("add_to_cart")
     public JsonResult<Void> addToCart(Integer pid, Integer amount,
@@ -38,6 +43,7 @@ public class CartController extends BaseController {
                 getUsernameFromSession(session));
         return new JsonResult<>(success, data);
     }
+
     @RequestMapping("{cid}/num/sub")
     public JsonResult<Integer> subNum(@PathVariable("cid") Integer cid, HttpSession session) {
         Integer data = cartService.subNum(cid, getUidFromSession(session),

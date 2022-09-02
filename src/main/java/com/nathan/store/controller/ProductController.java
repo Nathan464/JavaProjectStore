@@ -13,14 +13,20 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/products")
-public class ProductController extends BaseController{
-    @Autowired(required = false)
-    private IProductService productService;
-    @RequestMapping("hot_list")
-    public JsonResult<List<Product>> getHotList(){
-        List<Product> list = productService.findHotList();
-        return new JsonResult<>(success,list);
+public class ProductController extends BaseController {
+    private final IProductService productService;
+
+    @Autowired
+    public ProductController(IProductService productService) {
+        this.productService = productService;
     }
+
+    @RequestMapping("hot_list")
+    public JsonResult<List<Product>> getHotList() {
+        List<Product> list = productService.findHotList();
+        return new JsonResult<>(success, list);
+    }
+
     @GetMapping("{id}/details")
     public JsonResult<Product> getById(@PathVariable("id") Integer id) {
         Product data = productService.findById(id);

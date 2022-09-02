@@ -14,8 +14,14 @@ import java.util.UUID;
 // 用户业务层实现类
 @Service
 public class UserServiceImpl implements IUserService {
+    private final UserMapper userMapper;
+
+    // 构造器注入bean
     @Autowired(required = false)
-    private UserMapper userMapper;
+    public UserServiceImpl(UserMapper userMapper) {
+        this.userMapper = userMapper;
+    }
+
     @Override
     public void reg(User user) {
         // 通过user获得username，调用findByUsername判断是否被注册过

@@ -1,5 +1,6 @@
 package com.nathan.store.service.ex;
 
+// 删除过程中产生的异常
 public class DeleteException extends ServiceException{
     public DeleteException() {
     }

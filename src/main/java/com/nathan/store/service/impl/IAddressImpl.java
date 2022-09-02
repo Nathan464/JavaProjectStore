@@ -14,11 +14,16 @@ import java.util.List;
 
 @Service
 public class IAddressImpl implements IAddressService {
-    @Autowired(required = false)
-    private AddressMapper addressMapper;
+    private final AddressMapper addressMapper;
     // 添加用户的收货地址的业务层
+    private final IDistrictService districtService;
+
     @Autowired(required = false)
-    private IDistrictService districtService;
+    public IAddressImpl(AddressMapper addressMapper, IDistrictService districtService) {
+        this.addressMapper = addressMapper;
+        this.districtService = districtService;
+    }
+
     @Value("${user.address.max-count}")  // properties读取数据
     private Integer maxCount;
 
